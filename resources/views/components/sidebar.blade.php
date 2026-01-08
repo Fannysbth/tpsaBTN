@@ -1,0 +1,31 @@
+<aside class="sidebar">
+    <div class="sidebar-header">
+        <h3 class="sidebar-title">
+            TPSA<br>
+            <small>Security Questionnaire</small>
+        </h3>
+    </div>
+
+    <ul class="sidebar-menu">
+        <li class="{{ request()->is('/') ? 'active' : '' }}">
+        <a href="{{ url('/') }}">
+            <i class="fa-solid fa-gauge"></i>
+            <span>Dashboard</span>
+        </a>
+    </li>
+
+        <li class="{{ request()->is('questionnaire*') ? 'active' : '' }}">
+            <a href="{{ url('questionnaire') }}">
+                <i class="fa-solid fa-clipboard-question"></i>
+                <span>Questionnaire</span>
+            </a>
+        </li>
+
+        <li class="{{ request()->is('assessment*') ? 'active' : '' }}">
+            <a href="{{ url('assessment') }}">
+                <i class="fa-solid fa-file-lines"></i>
+                <span>Assessment</span>
+            </a>
+        </li>
+    </ul>
+</aside>
