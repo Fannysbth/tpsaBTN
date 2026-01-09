@@ -77,7 +77,7 @@
     border-radius: 8px;
     margin-top: 20px;text-align: center;">
             <span>No</span>
-            <span>Company Name</span>
+            <span style="text-align: left;">Company Name</span>
             <span>Total Score</span>
             <span>Risk Level</span>
             <span>Detail</span>

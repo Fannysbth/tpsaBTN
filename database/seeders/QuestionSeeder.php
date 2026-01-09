@@ -186,6 +186,15 @@ class QuestionSeeder extends Seeder
         $this->createQuestionsForCategory($category, $questions);
     }
 
+    private function mapQuestionType(string $type): string
+{
+    return match ($type) {
+        'isian' => 'isian',
+        default => 'pilihan', // pilihan + checkbox masuk sini
+    };
+}
+
+
     private function createITQuestions($category)
     {
         $questions = [
@@ -328,30 +337,30 @@ class QuestionSeeder extends Seeder
         $this->createQuestionsForCategory($category, $questions);
     }
 
-    private function createQuestionsForCategory($category, $questions)
-    {
-        foreach ($questions as $q) {
-            $question = Question::create([
-                'category_id' => $category->id,
-                'question_text' => $q['question_text'],
-                'question_type' => $q['question_type'],
-                'clue' => $q['clue'],
-                'has_attachment' => $q['has_attachment'],
-                'indicator' => $q['indicator'],
-                'order' => $q['order'],
-                'is_active' => true,
-            ]);
+   private function createQuestionsForCategory($category, $questions)
+{
+    foreach ($questions as $q) {
+        $question = Question::create([
+            'category_id'   => $category->id,
+            'question_text' => $q['question_text'],
+            'question_type' => $this->mapQuestionType($q['question_type']), // 👈 PENTING
+            'clue'          => $q['clue'],
+            'has_attachment'=> $q['has_attachment'],
+            'indicator'     => $q['indicator'],
+            'order'         => $q['order'],
+            'is_active'     => true,
+        ]);
 
-            // Buat options untuk tipe pilihan dan checkbox
-            if (in_array($q['question_type'], ['pilihan', 'checkbox']) && !empty($q['options'])) {
-                foreach ($q['options'] as $option) {
-                    QuestionOption::create([
-                        'question_id' => $question->id,
-                        'option_text' => $option['text'],
-                        'score' => $option['score'],
-                    ]);
-                }
+        if (in_array($q['question_type'], ['pilihan', 'checkbox']) && !empty($q['options'])) {
+            foreach ($q['options'] as $option) {
+                QuestionOption::create([
+                    'question_id' => $question->id,
+                    'option_text' => $option['text'],
+                    'score'       => $option['score'],
+                ]);
             }
         }
     }
+}
+
 }

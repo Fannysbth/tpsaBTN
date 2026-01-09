@@ -10,11 +10,19 @@ class Question extends Model
     use HasFactory;
 
     protected $fillable = [
-        'category_id', 'question_text', 'question_type', 
-        'clue', 'has_attachment', 'indicator', 'is_active', 'order'
+        'category_id',
+        'question_text',
+        'question_type',
+        'clue',
+        'indicator',
+        'has_attachment',
+        'attachment_text',
+        'is_active',
+        'order',
     ];
 
     protected $casts = [
+        'indicator' => 'array',
         'has_attachment' => 'boolean',
         'is_active' => 'boolean',
     ];

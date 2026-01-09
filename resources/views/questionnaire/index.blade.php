@@ -13,7 +13,7 @@
     $moreCategories = $categories->slice(3);
 @endphp
 
-<div class="questionnaire-wrapper">
+<div  style="max-width: 1202px; box-sizing: border-box; background: #F5F6FA; padding: 1px; margin: 10px 0 0 10px;">
 
     <div class="filter-edit-wrapper">
         <div class="filter-container">
@@ -68,7 +68,7 @@
     </div>
 
     {{-- QUESTION TABLE --}}
-    <div class="question-card">
+    <div class="question-card" style="margin-top: 10px; margin-right: 30px;">
 
         {{-- HEADER --}}
         <div class="question-header">
@@ -97,7 +97,7 @@
                     </div>
 
                     <div class="attachment-text">
-                        {{ $question->has_attachment ? 'Mohon lampirkan dokumen pendukung' : '-' }}
+                        {{ $question->has_attachment ? $question->attachment_text : '-' }}
                     </div>
 
                     <div class="action-btns " style="margin-left: 50px;">

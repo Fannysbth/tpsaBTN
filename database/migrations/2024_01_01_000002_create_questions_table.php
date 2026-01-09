@@ -12,10 +12,11 @@ return new class extends Migration
             $table->id();
             $table->foreignId('category_id')->constrained()->onDelete('cascade');
             $table->text('question_text');
-            $table->enum('question_type', ['pilihan', 'isian', 'checkbox']);
+            $table->enum('question_type', ['pilihan', 'isian'])->default('pilihan');
             $table->text('clue')->nullable();
             $table->boolean('has_attachment')->default(false);
-            $table->enum('indicator', ['high', 'medium', 'low'])->nullable();
+            $table->json('indicator')->nullable();
+            $table->text('attachment_text')->nullable();
             $table->boolean('is_active')->default(true);
             $table->integer('order')->default(0);
             $table->timestamps();

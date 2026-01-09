@@ -8,6 +8,7 @@ use App\Models\QuestionOption;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class QuestionnaireController extends Controller
 {
@@ -21,59 +22,114 @@ class QuestionnaireController extends Controller
     }
 
     // Menampilkan semua pertanyaan untuk diedit
-public function editAll()
-{
-    $categories = Category::with(['questions.options'])->get();
-    return view('questionnaire.editAll', compact('categories'));
-}
+    public function editAll()
+    {
+        $categories = Category::with(['questions.options'])->get();
+        return view('questionnaire.editAll', compact('categories'));
+    }
 
-// Update semua pertanyaan sekaligus
-public function updateAll(Request $request)
-{
-    DB::beginTransaction();
-    try {
-        foreach ($request->questions as $id => $data) {
-            $question = Question::findOrFail($id);
+    // Update semua pertanyaan sekaligus
+    public function updateAll(Request $request)
+    {
+        DB::beginTransaction();
 
-            $question->update([
-                'question_text' => $data['question_text'],
-                'question_type' => $data['question_type'],
-                'category_id'   => $data['category_id'],
-                'has_attachment'=> isset($data['has_attachment']),
-                'indicator'     => $data['indicator'] ?? null,
-                'order'         => $data['order'] ?? $question->order,
-            ]);
+        try {
+            foreach ($request->questions ?? [] as $id => $data) {
+                // Skip if marked for deletion
+                if (isset($data['_delete']) && $data['_delete'] == '1') {
+                    if (is_numeric($id)) {
+                        Question::where('id', $id)->delete();
+                    }
+                    continue;
+                }
 
-            // Hapus options lama dan simpan baru jika tipe pilihan
-            if (in_array($data['question_type'], ['pilihan', 'checkbox'])) {
-                $question->options()->delete();
+                // Skip if question text is empty
+                if (empty($data['question_text'])) {
+                    continue;
+                }
 
-                if (!empty($data['options'])) {
-                    foreach ($data['options'] as $option) {
-                        QuestionOption::create([
-                            'question_id' => $question->id,
-                            'option_text' => $option['text'],
-                            'score'       => $option['score'] ?? 0,
-                        ]);
+                $isNew = str_starts_with($id, 'new_');
+
+                if ($isNew) {
+                    // Create new question
+                    $question = new Question();
+                } else {
+                    // Update existing question
+                    $question = Question::find($id);
+                    if (!$question) {
+                        continue;
                     }
                 }
-            } else {
-                $question->options()->delete();
+
+                // Update question data
+                $question->question_text = $data['question_text'] ?? '';
+                $question->question_type = $data['question_type'] ?? 'pilihan';
+                $question->category_id = $data['category_id'] ?? Category::first()->id;
+                $question->indicator = $data['indicator'] ?? [];
+                $question->attachment_text = $data['attachment_text'] ?? null;
+                $question->clue = $data['clue'] ?? null;
+                $question->has_attachment = !empty($data['attachment_text']);
+                $question->order = 0;
+
+                $question->save();
+
+                // Handle options based on question type
+                if ($question->question_type === 'pilihan') {
+                    // Delete existing options for existing questions
+                    if (!$isNew) {
+                        $question->options()->delete();
+                    }
+
+                    // Add new options
+                    foreach ($data['options'] ?? [] as $optionId => $optionData) {
+                        if (!empty($optionData['text'])) {
+                            if (str_starts_with($optionId, 'new_')) {
+                                // New option
+                                QuestionOption::create([
+                                    'question_id' => $question->id,
+                                    'option_text' => $optionData['text'],
+                                    'score' => $optionData['score'] ?? 0,
+                                ]);
+                            } else {
+                                // Update existing option
+                                $existingOption = QuestionOption::find($optionId);
+                                if ($existingOption) {
+                                    $existingOption->update([
+                                        'option_text' => $optionData['text'],
+                                        'score' => $optionData['score'] ?? 0,
+                                    ]);
+                                } else {
+                                    // Fallback: create new option
+                                    QuestionOption::create([
+                                        'question_id' => $question->id,
+                                        'option_text' => $optionData['text'],
+                                        'score' => $optionData['score'] ?? 0,
+                                    ]);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // For text answer questions, remove all options
+                    $question->options()->delete();
+                }
             }
+
+            DB::commit();
+
+            return redirect()
+                ->route('questionnaire.index')
+                ->with('success', 'All changes have been saved successfully.');
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Failed to save questionnaire: ' . $e->getMessage());
+            
+            return back()
+                ->withInput()
+                ->with('error', 'Failed to save changes. Please try again.');
         }
-
-        DB::commit();
-
-        return redirect()->route('questionnaire.index')
-            ->with('success', 'Semua pertanyaan berhasil diupdate');
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return redirect()->back()->with('error', $e->getMessage());
     }
-}
-
-
 
     public function storeCategory(Request $request)
     {
@@ -93,7 +149,7 @@ public function updateAll(Request $request)
         }
 
         return redirect()->route('questionnaire.index')
-            ->with('success', 'Kategori berhasil ditambahkan');
+            ->with('success', 'Category added successfully');
     }
 
     public function storeQuestion(Request $request)
@@ -103,17 +159,18 @@ public function updateAll(Request $request)
             $validated = $request->validate([
                 'category_id' => 'required|exists:categories,id',
                 'question_text' => 'required|string',
-                'question_type' => 'required|in:pilihan,isian,checkbox',
+                'question_type' => 'required|in:pilihan,isian',
                 'clue' => 'nullable|string',
-                'has_attachment' => 'boolean',
-                'indicator' => 'nullable|in:high,medium,low',
+                'indicator' => 'nullable|array',
+                'indicator.*' => 'in:high,medium,low',
+                'attachment_text' => 'nullable|string',
                 'order' => 'integer'
             ]);
 
             $question = Question::create($validated);
 
             // Jika tipe pilihan, simpan options
-            if (in_array($validated['question_type'], ['pilihan', 'checkbox']) && $request->has('options')) {
+            if ($validated['question_type'] == 'pilihan' && $request->has('options')) {
                 foreach ($request->options as $option) {
                     QuestionOption::create([
                         'question_id' => $question->id,
@@ -133,7 +190,7 @@ public function updateAll(Request $request)
             }
 
             return redirect()->route('questionnaire.index')
-                ->with('success', 'Pertanyaan berhasil ditambahkan');
+                ->with('success', 'Question added successfully');
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
@@ -146,17 +203,19 @@ public function updateAll(Request $request)
         try {
             $validated = $request->validate([
                 'question_text' => 'required|string',
-                'question_type' => 'required|in:pilihan,isian,checkbox',
+                'question_type' => 'required|in:pilihan,isian',
                 'clue' => 'nullable|string',
                 'has_attachment' => 'boolean',
-                'indicator' => 'nullable|in:high,medium,low',
+                'indicator' => 'nullable|array',
+                'indicator.*' => 'in:high,medium,low',
+                'attachment_text' => 'nullable|string',
                 'order' => 'integer'
             ]);
 
             $question->update($validated);
 
             // Hapus options lama jika ada
-            if (in_array($validated['question_type'], ['pilihan', 'checkbox'])) {
+            if (in_array($validated['question_type'], ['pilihan'])) {
                 $question->options()->delete();
                 
                 if ($request->has('options')) {
