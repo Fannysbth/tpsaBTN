@@ -157,7 +157,7 @@
     justify-content: space-between;
     align-items: center;
     background: #ffffff;
-    padding: 20px 32px;
+    padding: 0 32px;
     border-bottom: 1px solid #E5E7EB;
 }
 
@@ -488,6 +488,15 @@ select:focus {
     border-radius: 3px;
 }
 
+.toolbar {
+    display: flex;
+    justify-content: space-between; /* kiri-kanan */
+    align-items: center;            /* sejajar vertikal */
+    width: 100%;
+    gap: 40px; /* kalau mau tetap ada jarak ekstra */
+}
+
+
 .question-textarea::-webkit-scrollbar-thumb {
     background: #C1C1C1;
     border-radius: 3px;
@@ -511,16 +520,104 @@ select:focus {
     border-bottom: 1px solid #D4D4D4;
     padding: 15px 30px;
     display: grid;
-    grid-template-columns: 60px 180px 1fr 100px 200px 120px;
+    grid-template-columns: 30px 100px 1fr 125px 200px 50px;
     font-weight: 700;
     font-size: 14px;
+}
+/* Style untuk tombol */
+.btn {
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    text-decoration: none;
+    border: 1px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.btn-sm {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+.btn-warning {
+    background-color: #ffc107;
+    color: #212529;
+    border-color: #ffc107;
+}
+
+.btn-warning:hover {
+    background-color: #e0a800;
+    border-color: #d39e00;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    background-color: #0069d9;
+    border-color: #0062cc;
+}
+
+.btn-success {
+    background-color: #28a745;
+    color: white;
+    border-color: #28a745;
+}
+
+.btn-success:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+}
+
+/* Style untuk action column */
+.action-btns {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* Icon detail */
+.icon-detail {
+    color: #4379EE;
+    font-size: 16px;
+    transition: color 0.3s ease;
+}
+
+.icon-detail:hover {
+    color: #2c5fd9;
+}
+
+.company-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.company-header-left h2 {
+    margin: 0;
+}
+
+.company-header-right {
+    display: flex;
+    gap: 10px;
+    align-items: center;
 }
 
 /* Row data */
 .question-row {
     padding: 14px 30px;
     display: grid;
-    grid-template-columns: 60px 180px 1fr 100px 200px 120px;
+    grid-template-columns: 30px 100px 1fr 125px 200px 50px;
     align-items: center;
     border-bottom: 1px solid #EEE;
     font-size: 14px;

@@ -4,9 +4,12 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\QuestionnaireController;
 use App\Http\Controllers\AssessmentController;
+use App\Http\Controllers\CategoryController;
 
 Route::get('/', [DashboardController::class, 'index'])->name('dashboard.index');
-
+// Route untuk edit assessment
+Route::get('/assessment/{id}/edit', [AssessmentController::class, 'edit'])->name('assessment.edit');
+Route::put('/assessment/{id}', [AssessmentController::class, 'update'])->name('assessment.update');
 // Questionnaire Routes
 Route::prefix('questionnaire')->group(function () {
     Route::get('/', [QuestionnaireController::class, 'index'])->name('questionnaire.index');
@@ -25,6 +28,11 @@ Route::put('/questionnaire/update-all', [QuestionnaireController::class, 'update
 
 });
 
+Route::get('/categories/create', [CategoryController::class, 'create'])->name('categories.create');
+Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
+
+Route::delete('/categories/{id}', [CategoryController::class, 'destroy'])
+    ->name('categories.destroy');
 
 // Assessment Routes
 Route::prefix('assessment')->group(function () {
@@ -36,4 +44,7 @@ Route::prefix('assessment')->group(function () {
     Route::get('/{assessment}/preview', [AssessmentController::class, 'previewExport'])->name('assessment.preview');
     Route::post('/{assessment}/import', [AssessmentController::class, 'import'])->name('assessment.import');
     Route::post('/{assessment}/send-email', [AssessmentController::class, 'sendEmail'])->name('assessment.send-email');
+    Route::get('/{assessment}/export', [AssessmentController::class, 'export'])->name('assessment.export');
+    Route::delete('/{assessment}', [AssessmentController::class, 'destroy'])->name('assessment.destroy');
+
 });

@@ -39,27 +39,27 @@
                 @endforeach
 
                 {{-- MORE --}}
-                @if ($moreCategories->count())
-                    <div class="dropdown filter-more">
-                        <button class="dropdown-toggle btn btn-link p-0 text-decoration-none"
-                                type="button"
-                                data-bs-toggle="dropdown">
-                            More...
-                        </button>
+            @if ($moreCategories->count())
+                <div class="dropdown filter-more">
+                    <button class="dropdown-toggle btn btn-link p-0 text-decoration-none"
+                            type="button"
+                            data-bs-toggle="dropdown">
+                        More...
+                    </button>
 
-                        <ul class="dropdown-menu dropdown-menu-end mt-2">
-                            @foreach ($moreCategories as $category)
-                                <li>
-                                    <a class="dropdown-item"
-                                       href="#"
-                                       data-category-id="{{ $category->id }}">
-                                        {{ $category->name }}
-                                    </a>
-                                </li>
-                            @endforeach
-                        </ul>
-                    </div>
-                @endif
+                    <ul class="dropdown-menu dropdown-menu-end mt-2">
+                        @foreach ($moreCategories as $category)
+                            <li>
+                                <a class="dropdown-item"
+                                   href="#"
+                                   data-category-id="{{ $category->id }}">
+                                    {{ $category->name }}
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
 
             </div>
 
@@ -70,7 +70,7 @@
          Add
     </button>
     <ul class="dropdown-menu">
-        <li><a class="dropdown-item" href="#" id="add-category">Category</a></li>
+        <li><a class="dropdown-item" href="{{ route('categories.create') }}">Category</a></li>
         <li><a class="dropdown-item" href="#" id="add-question">Question</a></li>
     </ul>
 </div>
@@ -129,6 +129,18 @@
                                                             class="option-score-input"
                                                             style="width: 50px; padding: 8px; border: 1px solid #4880FF; border-radius: 6px; font-size: 14px;"
                                                         />
+                                                        <button type="button"
+                    class="delete-option-btn"
+                    style="background: transparent;
+            border: none;
+            padding: 0;
+            margin: 0;
+            color: #000;
+            font-size: 16px;
+            cursor: pointer;">
+                X
+            </button>
+        
                                                     </div>
                                                 @endforeach
                                                 {{-- Add empty option template --}}
@@ -155,19 +167,18 @@
                                             </button>
                                         </div>
                                     @elseif($question->question_type == 'isian')
-                                        <!-- Text Answer Input -->
-                                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                                            <label style="color: #202224; font-size: 12px; font-weight: 600;">Answer</label>
-                                            <input 
-                                                type="text"
-                                                name="questions[{{ $question->id }}][answer_text]"
-                                                value="{{ $question->answer_text ?? '' }}"
-                                                placeholder="{{ $question->clue ?? 'Optional clue...' }}"
-                                                class="answer-input"
-                                                style="padding: 12px; border: 1px solid #4880FF; border-radius: 8px; font-size: 14px;"
-                                            />
-                                        </div>
-                                    @endif
+<div style="display: flex; flex-direction: column; gap: 8px;">
+    <label>Answer</label>
+    <input 
+        type="text"
+        name="questions[{{ $question->id }}][clue]"
+        value="{{ $question->clue ?? '' }}"
+        placeholder="Optional Clue"
+        style="padding: 12px; border: 1px solid #4880FF; border-radius: 8px; font-size: 14px;"
+    />
+</div>
+@endif
+
                                 </div>
                             </div>
 
@@ -207,15 +218,19 @@
                                     <div style="display: flex; gap: 16px;">
                                         @foreach(['high' => 'High', 'medium' => 'Medium', 'low' => 'Low'] as $indValue => $indLabel)
                                             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-                                                
 
-                                                <input 
-    type="checkbox"
-       name="questions[{{ $question->id }}][indicator][]"
-       value="high"
-    {{ in_array($indValue, $question->indicator ?? []) ? 'checked' : '' }}
 
-    style="width: 16px; height: 16px; accent-color: #4880FF;"
+@php
+    $indicators = is_array($question->indicator)
+        ? $question->indicator
+        : (json_decode($question->indicator, true) ?? []);
+@endphp
+
+<input type="checkbox"
+   name="questions[{{ $question->id }}][indicator][]"
+   value="{{ $indValue }}"
+   style="width: 16px; height: 16px; accent-color: #4880FF;"
+   {{ in_array($indValue, $indicators) ? 'checked' : '' }}
 />
 
                                                 <span style="font-size: 14px; color: #202224;">{{ $indLabel }}</span>
@@ -281,11 +296,109 @@
     </div>
 </form>
 
+
+<script>
+function validateForm() {
+    let valid = true;
+    let message = '';
+
+    document.querySelectorAll('.question-card').forEach(card => {
+        if (card.style.display === 'none') return; // skip yang dihapus
+
+        const qId = card.dataset.questionId;
+        const question = card.querySelector(`[name="questions[${qId}][question_text]"]`);
+        const category = card.querySelector(`[name="questions[${qId}][category_id]"]`);
+        const indicators = card.querySelectorAll(`[name="questions[${qId}][indicator][]"]:checked`);
+        const type = card.querySelector(`[name="questions[${qId}][question_type]"]`).value;
+
+        if (!question || question.value.trim() === '') {
+            valid = false;
+            message = 'Question tidak boleh kosong';
+        }
+
+        if (!category || category.value === '') {
+            valid = false;
+            message = 'Category tidak boleh kosong';
+        }
+
+        if (indicators.length === 0) {
+            valid = false;
+            message = 'Indicator harus dipilih';
+        }
+
+        if (type === 'pilihan') {
+            const options = card.querySelectorAll('.option-text-input');
+            if (options.length === 0) {
+                valid = false;
+                message = 'Pilihan jawaban tidak boleh kosong';
+            }
+            options.forEach(opt => {
+                if (opt.value.trim() === '') {
+                    valid = false;
+                    message = 'Text pilihan tidak boleh kosong';
+                }
+            });
+        }
+
+        if (type === 'isian') {
+            const clue = card.querySelector(`[name="questions[${qId}][clue]"]`);
+            if (!clue || clue.value.trim() === '') {
+                valid = false;
+                message = 'Clue tidak boleh kosong';
+            }
+        }
+    });
+
+    if (!valid) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Oops!',
+            text: message
+        });
+    }
+
+    return valid;
+}
+</script>
+
+
+<script>
+document.addEventListener('change', function(e) {
+    if (!e.target.matches('input[type="checkbox"][name$="[indicator][]"]')) return;
+
+    const checkbox = e.target;
+    const group = checkbox.closest('.question-card')
+                         .querySelectorAll('input[type="checkbox"][name$="[indicator][]"]');
+
+    const map = {
+        high: ['high'],
+        medium: ['medium','high'],
+        low: ['low', 'high','medium']
+    };
+
+    const selected = checkbox.value;
+
+    // reset semua
+    group.forEach(cb => cb.checked = false);
+
+    // set sesuai aturan
+    map[selected].forEach(val => {
+        group.forEach(cb => {
+            if (cb.value === val) cb.checked = true;
+        });
+    });
+});
+
+</script>
+
+
 <script>
 let isSubmitting = false;
 
 document.getElementById('saveBtn').addEventListener('click', function (e) {
     e.preventDefault();
+
+     if (!validateForm()) return; 
 
     Swal.fire({
         title: 'Save changes?',
@@ -336,8 +449,14 @@ Swal.fire({
 
 
 <script>
+    const answerState = {};
+
 document.addEventListener('DOMContentLoaded', function() {
     let questionCounter = {{ $categories->flatMap->questions->count() }} + 1;
+
+    document.querySelectorAll('.question-type-select').forEach(sel => {
+    sel.dataset.prevType = sel.value;
+});
 
     // Initialize existing textareas
     document.querySelectorAll('.question-textarea').forEach(textarea => {
@@ -345,79 +464,186 @@ document.addEventListener('DOMContentLoaded', function() {
         textarea.style.height = (textarea.scrollHeight) + 'px';
     });
 
+    const answerMemory = {};
+
+
     // Question type change handler
-    document.addEventListener('change', function (e) {
-    if (!e.target.classList.contains('question-type-select')) return;
+    document.addEventListener('change', function(e){
+  if(!e.target.classList.contains('question-type-select')) return;
 
-    const select = e.target;
-    const questionId = select.dataset.questionId;
-    const answerSection = document.querySelector(
-        `.answer-section[data-question-id="${questionId}"]`
-    );
+  const select = e.target;
+  const qId = select.dataset.questionId;
+  const card = select.closest('.question-card');
+  const answerSection = card.querySelector('.answer-section');
 
-    if (!answerSection) return;
+  if(!answerMemory[qId]){
+    answerMemory[qId] = { pilihan: [], isian: '' };
+  }
 
-    if (select.value === 'pilihan') {
-        answerSection.innerHTML = `
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-                <label style="color: #202224; font-size: 12px; font-weight: 600;">Options</label>
-                <div class="options-container" style="display: flex; flex-direction: column; gap: 8px;">
-                    <div class="option-item new-option-template" style="display:none;"></div>
-                </div>
-                <button type="button" class="add-option-btn" data-question-id="${questionId}" style="align-self: flex-start; padding: 8px 16px; background: #4880FF; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer;">
-                    Add Option
-                </button>
-            </div>
-        `;
-        addOption(questionId);
-    } else {
-        answerSection.innerHTML = `
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-                <label style="color: #202224; font-size: 12px; font-weight: 600;">Answer</label>
-                <input 
-                    type="text"
-                    name="questions[${questionId}][answer_text]"
-                    placeholder="Optional clue..."
-                    style="padding:12px;border:1px solid #4880FF;border-radius:8px;"
-                />
-            </div>
-        `;
+  const prevType = select.dataset.prevType;
+
+  // SIMPAN DATA LAMA
+  if(prevType === 'pilihan'){
+    const opts = [];
+    answerSection.querySelectorAll('.option-item').forEach(item=>{
+      const text = item.querySelector('.option-text-input')?.value || '';
+      const score = item.querySelector('.option-score-input')?.value || '';
+      if(text !== '' || score !== '') opts.push({text, score});
+    });
+    answerMemory[qId].pilihan = opts;
+  }
+
+  if(prevType === 'isian'){
+    const clue = answerSection.querySelector('input[name$="[clue]"]');
+    answerMemory[qId].isian = clue ? clue.value : '';
+  }
+
+  // RENDER ULANG SESUAI TIPE BARU
+  if(select.value === 'pilihan'){
+    const data = answerMemory[qId].pilihan;
+    answerSection.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <label style="font-size:12px;font-weight:600;">Options</label>
+        <div class="options-container"></div>
+        <button type="button" class="add-option-btn" data-question-id="${qId}"
+          style="align-self:flex-start;padding:8px 16px;background:#4880FF;color:white;border:none;border-radius:6px;">
+          Add Option
+        </button>
+      </div>
+    `;
+    const cont = answerSection.querySelector('.options-container');
+
+    if(data.length){
+      data.forEach((opt,i)=>{
+        cont.insertAdjacentHTML('beforeend', optionTemplate(qId,i,opt.text,opt.score));
+      });
+    }else{
+      cont.insertAdjacentHTML('beforeend', optionTemplate(qId,0,'',''));
+    }
+  }
+
+  if(select.value === 'isian'){
+    const clue = answerMemory[qId].isian || '';
+    answerSection.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <label style="font-size:12px;font-weight:600;">Answer</label>
+        <input type="text"
+          name="questions[${qId}][clue]"
+          value="${clue}"
+          placeholder="Optional Clue"
+          style="padding:12px;border:1px solid #4880FF;border-radius:8px;">
+      </div>
+    `;
+  }
+
+  select.dataset.prevType = select.value;
+});
+
+document.addEventListener('click', function(e) {
+    // Semua item filter, termasuk dropdown
+    if(e.target.matches('.filter-item[data-category-id], .dropdown-item[data-category-id]')) {
+        e.preventDefault();
+        const categoryId = e.target.dataset.categoryId;
+
+        // Hapus semua active
+        document.querySelectorAll('.filter-item').forEach(i => i.classList.remove('active'));
+        document.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
+
+        // Tambahkan active ke yang diklik
+        e.target.classList.add('active');
+
+        // Filter questions
+        document.querySelectorAll('.question-card').forEach(card => {
+            card.style.display = card.dataset.category == categoryId ? 'flex' : 'none';
+        });
+    }
+
+    // Klik "All"
+    if(e.target.matches('.filter-item.fixed')) {
+        document.querySelectorAll('.filter-item, .dropdown-item').forEach(i => i.classList.remove('active'));
+        e.target.classList.add('active');
+        document.querySelectorAll('.question-card').forEach(card => {
+            card.style.display = 'flex';
+        });
     }
 });
 
 
+
+
+function optionTemplate(qId,i,text,score){
+  return `
+  <div class="option-item" style="display:flex;gap:12px;align-items:center;">
+    <input type="text"
+      name="questions[${qId}][options][${i}][text]"
+      value="${text}"
+      class="option-text-input"
+      placeholder="Option text"
+      style="flex:1;padding:8px 12px;border:1px solid #4880FF;border-radius:6px;">
+    <input type="number"
+      name="questions[${qId}][options][${i}][score]"
+      value="${score}"
+      class="option-score-input"
+      placeholder="0"
+      style="width:50px;padding:8px;border:1px solid #4880FF;border-radius:6px;">
+    <button type="button"
+                    class="delete-option-btn"
+                    style="background: transparent;
+            border: none;
+            padding: 0;
+            margin: 0;
+            color: #000;
+            font-size: 16px;
+            cursor: pointer;">
+                X
+            </button>
+  </div>`;
+}
+
+
     // Add option function
     function addOption(questionId) {
-        const optionsContainer = document.querySelector(`.answer-section[data-question-id="${questionId}"] .options-container`);
-        const optionCount = optionsContainer.querySelectorAll('.option-item:not(.new-option-template)').length;
-        const letter = String.fromCharCode(65 + optionCount);
-        
-        const newOption = document.createElement('div');
-        newOption.className = 'option-item';
-        newOption.innerHTML = `
-            <div style="display: flex; gap: 12px; align-items: center;">
-                <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
-                    
-                    <input 
-                        type="text"
-                        name="questions[${questionId}][options][${optionCount}][text]"
-                        placeholder="Option text"
-                        class="option-text-input"
-                        style="flex: 1; padding: 8px 12px; border: 1px solid #4880FF; border-radius: 6px; font-size: 14px;"
-                    />
-                </div>
-                <input 
-                    type="number"
-                    name="questions[${questionId}][options][${optionCount}][score]"
-                    placeholder="0"
-                    class="option-score-input"
-                    style="width: 50px; padding: 8px; border: 1px solid #4880FF; border-radius: 6px; font-size: 14px;"
-            </div>
-        `;
-        
-        optionsContainer.insertBefore(newOption, optionsContainer.querySelector('.new-option-template'));
-        updateOptionLetters(questionId);
-    }
+  const wrapper = document.querySelector(`.answer-section[data-question-id="${questionId}"]`);
+  if (!wrapper) return;
+
+  const optionsContainer = wrapper.querySelector('.options-container');
+  if (!optionsContainer) return;
+
+  const index = optionsContainer.querySelectorAll('.option-item').length;
+
+  const newOption = document.createElement('div');
+  newOption.className = 'option-item';
+  newOption.style.display = 'flex';
+  newOption.style.gap = '12px';
+  newOption.style.alignItems = 'center';
+
+  newOption.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;flex:1;">
+      <input 
+        type="text"
+        name="questions[${questionId}][options][${index}][text]"
+        placeholder="Option"
+        class="option-text-input"
+        style="flex:1;padding:8px 12px;border:1px solid #4880FF;border-radius:6px;font-size:14px;"
+      />
+    </div>
+    <input 
+      type="number"
+      name="questions[${questionId}][options][${index}][score]"
+      placeholder="0"
+      class="option-score-input"
+      style="width:50px;padding:8px;border:1px solid #4880FF;border-radius:6px;font-size:14px;"
+    />
+    <button type="button"
+      class="delete-option-btn"
+      style="background:transparent;border:none;padding:0;margin:0;color:#000;font-size:16px;cursor:pointer;">
+      X
+    </button>
+  `;
+
+  optionsContainer.appendChild(newOption);
+}
+
 
     // Update option letters
     function updateOptionLetters(questionId) {
@@ -512,9 +738,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <div class="options-container" style="display: flex; flex-direction: column; gap: 8px;">
                                     <div class="option-item new-option-template" style="display: flex; gap: 12px; align-items: center; display: none;">
                                         <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
-                                            <div style="width: 24px; height: 24px; border-radius: 4px; border: 1px solid #4880FF; display: flex; align-items: center; justify-content: center;">
-                                                <span style="color: #4880FF; font-size: 12px;">A</span>
-                                            </div>
+                                           
                                             <input 
                                                 type="text"
                                                 placeholder="Add new option"
@@ -528,6 +752,18 @@ document.addEventListener('DOMContentLoaded', function() {
                                             class="new-option-score"
                                             style="width: 50px; padding: 8px; border: 1px solid #4880FF; border-radius: 6px; font-size: 14px;"
                                         />
+                                        <button type="button"
+                    class="delete-option-btn"
+                    style="background: transparent;
+            border: none;
+            padding: 0;
+            margin: 0;
+            color: #000;
+            font-size: 16px;
+            cursor: pointer;">
+                X
+            </button>
+        
                                     </div>
                                 </div>
                                 <button type="button" class="add-option-btn" data-question-id="${newQuestionId}" style="align-self: flex-start; padding: 8px 16px; background: #4880FF; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer;">
@@ -606,7 +842,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <label style="color: #202224; font-size: 12px; font-weight: 600;">Attachment</label>
                             <input 
                                 type="text"
-                                name="questions[${newQuestionId}][attachment]"
+                                name="questions[${newQuestionId}][attachment_text]"
                                 placeholder="Please attach supporting document"
                                 style="padding: 12px; border: 1px solid #4880FF; border-radius: 8px; font-size: 14px;"
                             />
@@ -675,7 +911,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // Setup initial option events
     setupOptionEvents();
 });
+
+document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('delete-option-btn')) {
+            const item = e.target.closest('.option-item');
+            if (item) {
+                item.remove();
+            }
+        }
+    });
 </script>
+
+<style>
+    .filter-item.active,
+    .dropdown-item.active {
+        color: #4379EE !important; /* biru */
+        font-weight: 600;
+    }
+</style>
 
 
 @endsection

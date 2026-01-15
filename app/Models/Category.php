@@ -7,17 +7,21 @@ use Illuminate\Database\Eloquent\Model;
 
 class Category extends Model
 {
-    use HasFactory;
+    protected $fillable = ['name', 'criteria'];
 
-    protected $fillable = ['name', 'description', 'weight'];
+     protected $casts = [
+        'criteria' => 'array', // ini otomatis bikin $category->criteria jadi array
+    ];
 
+   // Tambahkan relasi
     public function questions()
     {
-        return $this->hasMany(Question::class)->orderBy('order');
+        return $this->hasMany(Question::class);
     }
 
+    // Relasi khusus untuk activeQuestions
     public function activeQuestions()
     {
-        return $this->hasMany(Question::class)->where('is_active', true)->orderBy('order');
+        return $this->hasMany(Question::class)->where('is_active', 1);
     }
 }

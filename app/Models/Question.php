@@ -26,11 +26,29 @@ class Question extends Model
         'has_attachment' => 'boolean',
         'is_active' => 'boolean',
     ];
+// App\Models\Question.php
+public function scopeByIndicator($query, $indicator)
+{
+    return $query->where(function($q) use ($indicator) {
+        $q->whereJsonContains('indicator', $indicator)
+          ->orWhere('indicator', 'LIKE', "%{$indicator}%");
+    });
+}
+//     // app/Models/Question.php
+// public function scopeByIndicator($query, $level)
+// {
+//     if (!$level) return $query;
+    
+//     return $query->whereJsonContains('indicator', $level);
+// }
+
+
 
     public function category()
     {
         return $this->belongsTo(Category::class);
     }
+    
 
     public function options()
     {

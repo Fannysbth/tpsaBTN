@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\Category;
-use Illuminate\Support\Str;
 
 class CategorySeeder extends Seeder
 {
@@ -13,33 +12,51 @@ class CategorySeeder extends Seeder
         $categories = [
             [
                 'name' => 'Keuangan',
-                'description' => 'Penilaian terkait aspek keuangan perusahaan',
-                'weight' => 3,
+                'criteria' => [
+                    'high' => 'Risiko tinggi pada aspek keuangan',
+                    'medium' => 'Risiko sedang pada aspek keuangan',
+                    'low' => 'Risiko rendah pada aspek keuangan',
+                ],
             ],
             [
                 'name' => 'Operasional',
-                'description' => 'Penilaian terkait proses operasional perusahaan',
-                'weight' => 2,
+                'criteria' => [
+                    'high' => 'Risiko tinggi pada proses operasional',
+                    'medium' => 'Risiko sedang pada proses operasional',
+                    'low' => 'Risiko rendah pada proses operasional',
+                ],
             ],
             [
                 'name' => 'Sumber Daya Manusia',
-                'description' => 'Penilaian terkait pengelolaan SDM',
-                'weight' => 2,
+                'criteria' => [
+                    'high' => 'Risiko tinggi pada pengelolaan SDM',
+                    'medium' => 'Risiko sedang pada pengelolaan SDM',
+                    'low' => 'Risiko rendah pada pengelolaan SDM',
+                ],
             ],
             [
                 'name' => 'Teknologi Informasi',
-                'description' => 'Penilaian terkait sistem dan infrastruktur IT',
-                'weight' => 3,
+                'criteria' => [
+                    'high' => 'Risiko tinggi pada sistem IT',
+                    'medium' => 'Risiko sedang pada sistem IT',
+                    'low' => 'Risiko rendah pada sistem IT',
+                ],
             ],
             [
                 'name' => 'Kepatuhan',
-                'description' => 'Penilaian terkait kepatuhan terhadap regulasi',
-                'weight' => 4,
+                'criteria' => [
+                    'high' => 'Risiko tinggi pada kepatuhan regulasi',
+                    'medium' => 'Risiko sedang pada kepatuhan regulasi',
+                    'low' => 'Risiko rendah pada kepatuhan regulasi',
+                ],
             ],
             [
                 'name' => 'Manajemen Risiko',
-                'description' => 'Penilaian terkait sistem manajemen risiko',
-                'weight' => 3,
+                'criteria' => [
+                    'high' => 'Risiko tinggi pada manajemen risiko',
+                    'medium' => 'Risiko sedang pada manajemen risiko',
+                    'low' => 'Risiko rendah pada manajemen risiko',
+                ],
             ],
         ];
 

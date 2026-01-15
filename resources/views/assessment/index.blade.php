@@ -12,76 +12,101 @@
 
 <div style="max-width: 1202px; box-sizing: border-box; background: #F5F6FA; padding: 1px; margin: 10px 0 0 10px;">
 
-    {{-- ADD BUTTON --}}
-<div class="btn-edit btn-blue" onclick="alert('Add pressed!')">
-    <i class="fas fa-plus"></i>
-    <span class="filter-text">Add</span>
-</div>
-
-{{-- MONTH DROPDOWN --}}
-<div class="dropdown" style="display:inline-block; margin-left:10px;">
-    <button class="filter-item dropdown-toggle" type="button" data-bs-toggle="dropdown" style="background-color:#FCFCFC;">
-        <i class="fas fa-calendar"></i>
-        January
-    </button>
-    <ul class="dropdown-menu" style="min-width: auto; background-color:#FCFCFC;">
-        <li><a class="dropdown-item" href="#">January</a></li>
-        <li><a class="dropdown-item" href="#">February</a></li>
-        <li><a class="dropdown-item" href="#">March</a></li>
-        <li><a class="dropdown-item" href="#">April</a></li>
-        <li><a class="dropdown-item" href="#">May</a></li>
-        <li><a class="dropdown-item" href="#">June</a></li>
-        <li><a class="dropdown-item" href="#">July</a></li>
-        <li><a class="dropdown-item" href="#">August</a></li>
-        <li><a class="dropdown-item" href="#">September</a></li>
-        <li><a class="dropdown-item" href="#">October</a></li>
-        <li><a class="dropdown-item" href="#">November</a></li>
-        <li><a class="dropdown-item" href="#">December</a></li>
-    </ul>
-</div>
-
-
-
-    {{-- ASSESSMENT TABLE --}}
-    <div class="question-card" style="margin-top: 10px; margin-right: 30px;">
-
-        {{-- TABLE HEADER --}}
-        <div class="question-header">
-            <div>No</div>
-            <div>Date</div>
-            <div>Company Name</div>
-            <div>Risk Level</div>
-            <div style="text-align:center;">Action</div>
-            <div style="text-align:center;">Detail</div>
-        </div>
-
-        {{-- TABLE DATA --}}
-        @foreach($assessments as $index => $assessment)
-            <div class="question-row">
-                <div>{{ $index + 1 }}</div>
-                <div>{{ $assessment->assessment_date->format('d/m/Y') }}</div>
-                <div>{{ $assessment->company_name }}</div>
-                <div>{{ strtoupper($assessment->risk_level) }}</div>
-
-                {{-- ACTION BUTTONS --}}
-                <div class="action-btns" style="display:flex; justify-content:center; gap:5px;">
-                    <button class="btn btn-sm btn-primary" onclick="alert('Export pressed!')">
-                        <i class="fas fa-download"></i> Export
-                    </button>
-                    <button class="btn btn-sm btn-success" onclick="alert('Upload pressed!')">
-                        <i class="fas fa-upload"></i> Upload
-                    </button>
-                </div>
-
-                {{-- DETAIL / PROGRESS BAR --}}
-                <a href="{{ route('assessment.show', $assessment['id']) }}" style="text-align: center;">
-        <i class="fa-solid fa-arrow-up-right-from-square icon-detail"></i>
+<div class="toolbar">
+    <a href="{{ route('assessment.create') }}" class="btn-edit">
+        <i class="fas fa-plus"></i>
+        <span>Add</span>
     </a>
-            </div>
-        @endforeach
 
+    {{-- MONTH DROPDOWN --}}
+    <form method="GET" action="{{ route('assessment.index') }}">
+        <select name="month" class="button-row-view" style="margin-right: 30px;" onchange="this.form.submit()">
+            @for($i=1;$i<=12;$i++)
+                <option value="{{ $i }}" {{ $i==$month?'selected':'' }}>
+                    {{ date('F', mktime(0,0,0,$i,1)) }}
+                </option>
+            @endfor
+        </select>
+    </form>
+</div>
+
+@if(session('success'))
+    <div style="background:#d4edda;color:#155724;padding:10px;margin-bottom:10px;border-radius:6px;">
+        {{ session('success') }}
+    </div>
+@endif
+
+@if(session('error'))
+    <div style="background:#f8d7da;color:#721c24;padding:10px;margin-bottom:10px;border-radius:6px;">
+        {{ session('error') }}
+    </div>
+@endif
+
+{{-- ASSESSMENT TABLE --}}
+<div class="question-card" style="margin-top: 10px; margin-right: 30px;">
+
+    {{-- TABLE HEADER --}}
+    <div class="question-header">
+        <div>No</div>
+        <div>Date</div>
+        <div>Company Name</div>
+        <div>Risk Level</div>
+        <div style="text-align:center; width: 250px;">Action</div> {{-- Tambah width untuk action column --}}
+        <div style="text-align:center;">Detail</div>
     </div>
 
+    {{-- TABLE DATA --}}
+    @forelse($assessments as $index => $assessment)
+        <div class="question-row">
+            <div>{{ $index + 1 }}</div>
+            <div>{{ $assessment->assessment_date->format('d/m/Y') }}</div>
+            <div>{{ $assessment->company_name }}</div>
+            <div>{{ $assessment->risk_level_label ? strtoupper($assessment->risk_level_label) : '-' }}</div>
+
+            {{-- ACTION BUTTONS --}}
+            <div class="action-btns" style="display:flex; justify-content:center; gap:5px; flex-wrap: wrap;">
+                {{-- Edit Button --}}
+                <a href="{{ route('assessment.edit', $assessment->id) }}" class="btn btn-sm btn-warning" title="Edit Assessment">
+                    <i class="fas fa-edit"></i> Edit
+                </a>
+                
+                {{-- Export Button --}}
+                <a href="{{ route('assessment.export', $assessment) }}" class="btn btn-sm btn-primary">
+                    <i class="fas fa-download"></i> Export
+                </a>
+            </div>
+
+            {{-- DETAIL / PROGRESS BAR --}}
+            <div style="text-align: center;">
+                <a href="{{ route('assessment.show', $assessment->id) }}">
+                    <i class="fa-solid fa-arrow-up-right-from-square icon-detail"></i>
+                </a>
+            </div>
+        </div>
+    @empty
+        <div class="question-row" style="justify-content:center; padding:20px;">
+            <div>Belum ada data assessment</div>
+        </div>
+    @endforelse
 </div>
+
+</div>
+
+{{-- Tambahkan script untuk konfirmasi upload --}}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInputs = document.querySelectorAll('input[type="file"]');
+    fileInputs.forEach(input => {
+        input.addEventListener('change', function(e) {
+            if (!this.value) return;
+            
+            if (!confirm('Apakah Anda yakin ingin mengupload file ini? Data jawaban sebelumnya akan diganti.')) {
+                this.value = '';
+                return;
+            }
+        });
+    });
+});
+</script>
 
 @endsection

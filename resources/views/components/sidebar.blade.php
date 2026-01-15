@@ -21,11 +21,5 @@
             </a>
         </li>
 
-        <li class="{{ request()->is('assessment*') ? 'active' : '' }}">
-            <a href="{{ url('assessment') }}">
-                <i class="fa-solid fa-file-lines"></i>
-                <span>Assessment</span>
-            </a>
-        </li>
     </ul>
 </aside>

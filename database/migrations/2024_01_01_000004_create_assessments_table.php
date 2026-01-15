@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('company_name');
             $table->date('assessment_date');
-            $table->integer('total_score')->nullable();
+            $table->decimal('total_score', 5, 2)->nullable(); // ubah dari integer ke decimal
             $table->enum('risk_level', ['high', 'medium', 'low'])->nullable();
             $table->json('category_scores')->nullable();
             $table->text('notes')->nullable();

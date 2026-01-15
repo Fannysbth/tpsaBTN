@@ -72,35 +72,56 @@
 
         {{-- HEADER --}}
         <div class="question-header">
-            <div>No</div>
+            <div >No</div>
             <div>Category</div>
-            <div >Question</div>
-            <div>Type Answer</div>
+            <div style= "text-align: center;">Question</div>
+            <div style= "text-align: center;">Type Answer</div>
             <div style="text-align: center;">Attachment</div>
-            <div style="text-align: center;">Aksi</div>
+            <div style= "text-align: center;">Aksi</div>
         </div>
-
-        {{-- DATA --}}
+        
+@php $no = 1; @endphp
+        {{-- DATA --}} 
         @foreach($categories as $category)
-            @foreach($category->questions as $question)
-                <div class="question-row"
-                     data-category-id="{{ $category->id }}">
-
-                    <div>{{ $question->order }}</div>
-                    <div>{{ $category->name }}</div>
-                    <div>{{ $question->question_text }}</div>
+    @foreach($category->questions as $question)
+        <div class="question-row" data-category-id="{{ $category->id }}">
+            <div>{{ $no++ }}</div>
+            <div>{{ $category->name }}</div>
+            <div>{{ $question->question_text }}</div>
 
                     <div>
-                        <button class="type-btn">
-                            {{ ucfirst($question->question_type) }}
-                        </button>
-                    </div>
+    @if($question->question_type === 'pilihan')
+        <select 
+            style="
+                padding:6px 8px;
+                border-radius:6px;
+                margin:0 10px;
+                border:1px solid #4880FF;
+                max-width:300px;
+                width:100%;
+                overflow:hidden;
+                text-overflow:ellipsis;
+                white-space:nowrap;
+            "
+        >
+            <option value="">-- Pilihan --</option>
+            @foreach($question->options as $opt)
+                <option>{{ $opt->option_text }}</option>
+            @endforeach
+        </select>
+    @else
+        <span style="color:#000; justify-content:center; display:flex;">
+            {{ $question->clue ?? '-' }}
+        </span>
+    @endif
+</div>
+
 
                     <div class="attachment-text">
                         {{ $question->has_attachment ? $question->attachment_text : '-' }}
                     </div>
 
-                    <div class="action-btns " style="margin-left: 50px;">
+                    <div class="action-btns " style="margin-left: 10px;">
                         
 
                         <button class="btn btn-sm btn-danger delete-question"
@@ -115,8 +136,7 @@
     </div>
 </div>
 
-@include('questionnaire.modals.category')
-@include('questionnaire.modals.question')
+
 
 {{-- ================= FILTER SCRIPT ================= --}}
 <script>

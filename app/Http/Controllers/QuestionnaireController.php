@@ -44,9 +44,12 @@ class QuestionnaireController extends Controller
                 }
 
                 // Skip if question text is empty
-                if (empty($data['question_text'])) {
-                    continue;
-                }
+                $text = trim($data['question_text'] ?? '');
+
+if ($text === '') {
+    continue;
+}
+
 
                 $isNew = str_starts_with($id, 'new_');
 
@@ -62,12 +65,15 @@ class QuestionnaireController extends Controller
                 }
 
                 // Update question data
-                $question->question_text = $data['question_text'] ?? '';
+                $question->question_text = $text;
+
                 $question->question_type = $data['question_type'] ?? 'pilihan';
                 $question->category_id = $data['category_id'] ?? Category::first()->id;
                 $question->indicator = $data['indicator'] ?? [];
                 $question->attachment_text = $data['attachment_text'] ?? null;
                 $question->clue = $data['clue'] ?? null;
+
+
                 $question->has_attachment = !empty($data['attachment_text']);
                 $question->order = 0;
 

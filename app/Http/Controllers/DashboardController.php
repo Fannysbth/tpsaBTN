@@ -9,40 +9,41 @@ use App\Models\Assessment;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
+
+
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $month = $request->input('month'); // bisa null
+        $year = $request->input('year');   // bisa null
+
+        // Ambil semua assessments, bisa filter bulan/tahun jika dipilih
+        $query = Assessment::orderBy('assessment_date', 'desc');
+
+        if ($month) {
+            $query->whereMonth('assessment_date', $month);
+        }
+
+        if ($year) {
+            $query->whereYear('assessment_date', $year);
+        }
+
+        $assessments = $query->get();
+
+        // Summary: total seluruh data (jika mau summary juga ikut filter, ubah query sama seperti di atas)
         $totalCategories = Category::count();
         $totalQuestions = Question::where('is_active', true)->count();
         $totalAssessments = Assessment::count();
 
-        // Filter berdasarkan bulan
-        $month = request('month', date('m'));
-        $year = request('year', date('Y'));
-
-        $assessments = Assessment::whereMonth('assessment_date', $month)
-            ->whereYear('assessment_date', $year)
-            ->orderBy('assessment_date', 'desc')
-            ->get()
-            ->map(function($assessment, $index) {
-                return [
-                    'no' => $index + 1,
-                    'company_name' => $assessment->company_name,
-                    'total_score' => $assessment->total_score,
-                    'risk_level' => $assessment->risk_level,
-                    'assessment_date' => $assessment->assessment_date->format('d/m/Y'),
-                    'id' => $assessment->id
-                ];
-            });
-
         return view('dashboard.index', compact(
-            'totalCategories',
-            'totalQuestions',
-            'totalAssessments',
-            'assessments',
-            'month',
-            'year'
+            'assessments', 
+            'month', 
+            'year', 
+            'totalCategories', 
+            'totalQuestions', 
+            'totalAssessments'
         ));
     }
+
 }
