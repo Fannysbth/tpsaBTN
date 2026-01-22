@@ -9,53 +9,41 @@ class CategorySeeder extends Seeder
 {
     public function run()
     {
+        // Hapus data lama jika ada
+        Category::truncate();
+
+        // Data kategori berdasarkan sheet
         $categories = [
             [
-                'name' => 'Keuangan',
+                'name' => 'Business & Operational Criticality',
                 'criteria' => [
-                    'high' => 'Risiko tinggi pada aspek keuangan',
-                    'medium' => 'Risiko sedang pada aspek keuangan',
-                    'low' => 'Risiko rendah pada aspek keuangan',
+                    'high' => 'Berpengaruh langsung pada layanan utama bank (core banking, mobile app, transaksi, compliance, dll)',
+                    'medium' => 'Mendukung proses penting tapi bukan layanan utama (admin, support, dll)',
+                    'low' => 'Hanya mendukung proses minor atau tidak berpengaruh langsung',
                 ],
             ],
             [
-                'name' => 'Operasional',
+                'name' => 'Sensitive Data',
                 'criteria' => [
-                    'high' => 'Risiko tinggi pada proses operasional',
-                    'medium' => 'Risiko sedang pada proses operasional',
-                    'low' => 'Risiko rendah pada proses operasional',
+                    'high' => 'Mengelola data sensitive PII atau akses ke production level administrator',
+                    'medium' => 'Mengelola data sensitive non PII atau akses ke production level non administrator',
+                    'low' => 'Tidak mengelola data sensitive Bank atau Tidak memiliki akses ke production',
                 ],
             ],
             [
-                'name' => 'Sumber Daya Manusia',
+                'name' => 'Technology Integration',
                 'criteria' => [
-                    'high' => 'Risiko tinggi pada pengelolaan SDM',
-                    'medium' => 'Risiko sedang pada pengelolaan SDM',
-                    'low' => 'Risiko rendah pada pengelolaan SDM',
+                    'high' => 'Terhubung ke sistem kritikal',
+                    'medium' => 'Terhubung ke sistem non-kritikal atau batch-based',
+                    'low' => 'Tidak ada interkoneksi',
                 ],
             ],
             [
-                'name' => 'Teknologi Informasi',
+                'name' => 'Informasi Umum',
                 'criteria' => [
-                    'high' => 'Risiko tinggi pada sistem IT',
-                    'medium' => 'Risiko sedang pada sistem IT',
-                    'low' => 'Risiko rendah pada sistem IT',
-                ],
-            ],
-            [
-                'name' => 'Kepatuhan',
-                'criteria' => [
-                    'high' => 'Risiko tinggi pada kepatuhan regulasi',
-                    'medium' => 'Risiko sedang pada kepatuhan regulasi',
-                    'low' => 'Risiko rendah pada kepatuhan regulasi',
-                ],
-            ],
-            [
-                'name' => 'Manajemen Risiko',
-                'criteria' => [
-                    'high' => 'Risiko tinggi pada manajemen risiko',
-                    'medium' => 'Risiko sedang pada manajemen risiko',
-                    'low' => 'Risiko rendah pada manajemen risiko',
+                    'high' => 'Informasi kritis dan sensitif',
+                    'medium' => 'Informasi penting tetapi tidak kritis',
+                    'low' => 'Informasi umum yang tersedia publik',
                 ],
             ],
         ];

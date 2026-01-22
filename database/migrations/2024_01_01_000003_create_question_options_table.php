@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('question_id')->constrained()->onDelete('cascade');
             $table->string('option_text');
-            $table->integer('score')->default(0);
+            $table->decimal('score', 5, 2)->default(0);
             $table->timestamps();
         });
     }

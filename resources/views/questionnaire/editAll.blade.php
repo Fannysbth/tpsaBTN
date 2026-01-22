@@ -449,14 +449,11 @@ Swal.fire({
 
 
 <script>
-    const answerState = {};
-
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded - Initializing...');
+    
     let questionCounter = {{ $categories->flatMap->questions->count() }} + 1;
-
-    document.querySelectorAll('.question-type-select').forEach(sel => {
-    sel.dataset.prevType = sel.value;
-});
+    const answerState = {};
 
     // Initialize existing textareas
     document.querySelectorAll('.question-textarea').forEach(textarea => {
@@ -466,209 +463,268 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const answerMemory = {};
 
-
-    // Question type change handler
-    document.addEventListener('change', function(e){
-  if(!e.target.classList.contains('question-type-select')) return;
-
-  const select = e.target;
-  const qId = select.dataset.questionId;
-  const card = select.closest('.question-card');
-  const answerSection = card.querySelector('.answer-section');
-
-  if(!answerMemory[qId]){
-    answerMemory[qId] = { pilihan: [], isian: '' };
-  }
-
-  const prevType = select.dataset.prevType;
-
-  // SIMPAN DATA LAMA
-  if(prevType === 'pilihan'){
-    const opts = [];
-    answerSection.querySelectorAll('.option-item').forEach(item=>{
-      const text = item.querySelector('.option-text-input')?.value || '';
-      const score = item.querySelector('.option-score-input')?.value || '';
-      if(text !== '' || score !== '') opts.push({text, score});
-    });
-    answerMemory[qId].pilihan = opts;
-  }
-
-  if(prevType === 'isian'){
-    const clue = answerSection.querySelector('input[name$="[clue]"]');
-    answerMemory[qId].isian = clue ? clue.value : '';
-  }
-
-  // RENDER ULANG SESUAI TIPE BARU
-  if(select.value === 'pilihan'){
-    const data = answerMemory[qId].pilihan;
-    answerSection.innerHTML = `
-      <div style="display:flex;flex-direction:column;gap:12px;">
-        <label style="font-size:12px;font-weight:600;">Options</label>
-        <div class="options-container"></div>
-        <button type="button" class="add-option-btn" data-question-id="${qId}"
-          style="align-self:flex-start;padding:8px 16px;background:#4880FF;color:white;border:none;border-radius:6px;">
-          Add Option
-        </button>
-      </div>
-    `;
-    const cont = answerSection.querySelector('.options-container');
-
-    if(data.length){
-      data.forEach((opt,i)=>{
-        cont.insertAdjacentHTML('beforeend', optionTemplate(qId,i,opt.text,opt.score));
-      });
-    }else{
-      cont.insertAdjacentHTML('beforeend', optionTemplate(qId,0,'',''));
-    }
-  }
-
-  if(select.value === 'isian'){
-    const clue = answerMemory[qId].isian || '';
-    answerSection.innerHTML = `
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        <label style="font-size:12px;font-weight:600;">Answer</label>
-        <input type="text"
-          name="questions[${qId}][clue]"
-          value="${clue}"
-          placeholder="Optional Clue"
-          style="padding:12px;border:1px solid #4880FF;border-radius:8px;">
-      </div>
-    `;
-  }
-
-  select.dataset.prevType = select.value;
-});
-
-document.addEventListener('click', function(e) {
-    // Semua item filter, termasuk dropdown
-    if(e.target.matches('.filter-item[data-category-id], .dropdown-item[data-category-id]')) {
-        e.preventDefault();
-        const categoryId = e.target.dataset.categoryId;
-
-        // Hapus semua active
-        document.querySelectorAll('.filter-item').forEach(i => i.classList.remove('active'));
-        document.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
-
-        // Tambahkan active ke yang diklik
-        e.target.classList.add('active');
-
-        // Filter questions
-        document.querySelectorAll('.question-card').forEach(card => {
-            card.style.display = card.dataset.category == categoryId ? 'flex' : 'none';
-        });
-    }
-
-    // Klik "All"
-    if(e.target.matches('.filter-item.fixed')) {
-        document.querySelectorAll('.filter-item, .dropdown-item').forEach(i => i.classList.remove('active'));
-        e.target.classList.add('active');
-        document.querySelectorAll('.question-card').forEach(card => {
-            card.style.display = 'flex';
-        });
-    }
-});
-
-
-
-
-function optionTemplate(qId,i,text,score){
-  return `
-  <div class="option-item" style="display:flex;gap:12px;align-items:center;">
-    <input type="text"
-      name="questions[${qId}][options][${i}][text]"
-      value="${text}"
-      class="option-text-input"
-      placeholder="Option text"
-      style="flex:1;padding:8px 12px;border:1px solid #4880FF;border-radius:6px;">
-    <input type="number"
-      name="questions[${qId}][options][${i}][score]"
-      value="${score}"
-      class="option-score-input"
-      placeholder="0"
-      style="width:50px;padding:8px;border:1px solid #4880FF;border-radius:6px;">
-    <button type="button"
-                    class="delete-option-btn"
-                    style="background: transparent;
-            border: none;
-            padding: 0;
-            margin: 0;
-            color: #000;
-            font-size: 16px;
-            cursor: pointer;">
-                X
-            </button>
-  </div>`;
-}
-
-
-    // Add option function
-    function addOption(questionId) {
-  const wrapper = document.querySelector(`.answer-section[data-question-id="${questionId}"]`);
-  if (!wrapper) return;
-
-  const optionsContainer = wrapper.querySelector('.options-container');
-  if (!optionsContainer) return;
-
-  const index = optionsContainer.querySelectorAll('.option-item').length;
-
-  const newOption = document.createElement('div');
-  newOption.className = 'option-item';
-  newOption.style.display = 'flex';
-  newOption.style.gap = '12px';
-  newOption.style.alignItems = 'center';
-
-  newOption.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;flex:1;">
-      <input 
-        type="text"
-        name="questions[${questionId}][options][${index}][text]"
-        placeholder="Option"
-        class="option-text-input"
-        style="flex:1;padding:8px 12px;border:1px solid #4880FF;border-radius:6px;font-size:14px;"
-      />
-    </div>
-    <input 
-      type="number"
-      name="questions[${questionId}][options][${index}][score]"
-      placeholder="0"
-      class="option-score-input"
-      style="width:50px;padding:8px;border:1px solid #4880FF;border-radius:6px;font-size:14px;"
-    />
-    <button type="button"
-      class="delete-option-btn"
-      style="background:transparent;border:none;padding:0;margin:0;color:#000;font-size:16px;cursor:pointer;">
-      X
-    </button>
-  `;
-
-  optionsContainer.appendChild(newOption);
-}
-
-
-    // Update option letters
-    function updateOptionLetters(questionId) {
-        const optionsContainer = document.querySelector(`.answer-section[data-question-id="${questionId}"] .options-container`);
-        const optionItems = optionsContainer.querySelectorAll('.option-item:not(.new-option-template)');
+    // ========== FUNGSI UNTUK UPDATE SEMUA CATEGORY DROPDOWN ==========
+    function updateAllCategoryDropdowns() {
+        console.log('Updating all category dropdowns...');
         
-        optionItems.forEach((item, index) => {
-            const letterSpan = item.querySelector('span');
-            if (letterSpan) {
-                letterSpan.textContent = String.fromCharCode(65 + index);
+        // Ambil semua dropdown category di question cards
+        const categoryDropdowns = document.querySelectorAll('.category-select');
+        
+        categoryDropdowns.forEach(dropdown => {
+            // Simpan nilai yang dipilih saat ini untuk setiap dropdown
+            const currentValue = dropdown.value;
+            
+            // Clear dropdown terlebih dahulu (kecuali untuk placeholder jika ada)
+            dropdown.innerHTML = '';
+            
+            // Tambahkan ulang semua opsi kategori dari data yang ada
+            @foreach($categories as $cat)
+                const option = document.createElement('option');
+                option.value = '{{ $cat->id }}';
+                option.textContent = '{{ $cat->name }}';
+                if ('{{ $cat->id }}' === currentValue) {
+                    option.selected = true;
+                }
+                dropdown.appendChild(option);
+            @endforeach
+        });
+        
+        console.log('Category dropdowns updated');
+    }
+
+    // ========== EVENT LISTENER UNTUK PERUBAHAN KATEGORI ==========
+    // Event delegation untuk perubahan pada dropdown kategori
+    document.addEventListener('change', function(e) {
+        // Jika yang berubah adalah dropdown kategori
+        if (e.target.classList.contains('category-select')) {
+            const select = e.target;
+            const questionCard = select.closest('.question-card');
+            const newCategoryId = select.value;
+            
+            console.log('Category changed to:', newCategoryId);
+            
+            // Update data-category pada card (untuk filter)
+            if (questionCard) {
+                questionCard.dataset.category = newCategoryId;
+                console.log('Question card category updated to:', newCategoryId);
+            }
+            
+            // Jika ada filter aktif, sesuaikan tampilan
+            const activeFilter = document.querySelector('.filter-item.active:not(.fixed)');
+            if (activeFilter && activeFilter.dataset.categoryId) {
+                const filterCategoryId = activeFilter.dataset.categoryId;
+                if (questionCard) {
+                    questionCard.style.display = (newCategoryId == filterCategoryId) ? 'flex' : 'none';
+                }
+            }
+            
+            // Update semua dropdown kategori lainnya untuk sinkronisasi
+            // (jika ingin sinkron semua ke nilai yang sama, tapi mungkin tidak perlu karena masing-masing independen)
+            // updateAllCategoryDropdowns(); // Uncomment jika ingin semua dropdown sama
+        }
+    });
+
+    // ========== FUNGSI UNTUK MENGUPDATE KATEGORI BARU ==========
+    function addNewCategoryOption(categoryId, categoryName) {
+        console.log('Adding new category option:', categoryId, categoryName);
+        
+        // Tambahkan opsi baru ke semua dropdown category
+        document.querySelectorAll('.category-select').forEach(dropdown => {
+            // Cek apakah kategori sudah ada
+            const existingOption = Array.from(dropdown.options).find(
+                option => option.value === categoryId.toString()
+            );
+            
+            if (!existingOption) {
+                const option = document.createElement('option');
+                option.value = categoryId;
+                option.textContent = categoryName;
+                dropdown.appendChild(option);
             }
         });
     }
 
-    // Setup option input events
-    function setupOptionEvents() {
-        document.querySelectorAll('.option-text-input').forEach(input => {
-            input.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const questionId = this.closest('.answer-section').dataset.questionId;
-                    addOption(questionId);
-                }
+    // ========== INISIALISASI DROPDOWN KATEGORI ==========
+    // Pastikan semua dropdown memiliki opsi yang sama
+    updateAllCategoryDropdowns();
+
+    // ========== KODE LAINNYA YANG SUDAH ADA ==========
+    document.querySelectorAll('.question-type-select').forEach(sel => {
+        sel.dataset.prevType = sel.value;
+    });
+
+    // Question type change handler
+    document.addEventListener('change', function(e){
+        if(!e.target.classList.contains('question-type-select')) return;
+
+        const select = e.target;
+        const qId = select.dataset.questionId;
+        const card = select.closest('.question-card');
+        const answerSection = card.querySelector('.answer-section');
+
+        if(!answerMemory[qId]){
+            answerMemory[qId] = { pilihan: [], isian: '' };
+        }
+
+        const prevType = select.dataset.prevType;
+
+        // SIMPAN DATA LAMA
+        if(prevType === 'pilihan'){
+            const opts = [];
+            answerSection.querySelectorAll('.option-item').forEach(item=>{
+                const text = item.querySelector('.option-text-input')?.value || '';
+                const score = item.querySelector('.option-score-input')?.value || '';
+                if(text !== '' || score !== '') opts.push({text, score});
             });
-        });
+            answerMemory[qId].pilihan = opts;
+        }
+
+        if(prevType === 'isian'){
+            const clue = answerSection.querySelector('input[name$="[clue]"]');
+            answerMemory[qId].isian = clue ? clue.value : '';
+        }
+
+        // RENDER ULANG SESUAI TIPE BARU
+        if(select.value === 'pilihan'){
+            const data = answerMemory[qId].pilihan;
+            answerSection.innerHTML = `
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                <label style="font-size:12px;font-weight:600;">Options</label>
+                <div class="options-container"></div>
+                <button type="button" class="add-option-btn" data-question-id="${qId}"
+                    style="align-self:flex-start;padding:8px 16px;background:#4880FF;color:white;border:none;border-radius:6px;">
+                    Add Option
+                </button>
+                </div>
+            `;
+            const cont = answerSection.querySelector('.options-container');
+
+            if(data.length){
+                data.forEach((opt,i)=>{
+                    cont.insertAdjacentHTML('beforeend', optionTemplate(qId,i,opt.text,opt.score));
+                });
+            }else{
+                cont.insertAdjacentHTML('beforeend', optionTemplate(qId,0,'',''));
+            }
+        }
+
+        if(select.value === 'isian'){
+            const clue = answerMemory[qId].isian || '';
+            answerSection.innerHTML = `
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                <label style="font-size:12px;font-weight:600;">Answer</label>
+                <input type="text"
+                    name="questions[${qId}][clue]"
+                    value="${clue}"
+                    placeholder="Optional Clue"
+                    style="padding:12px;border:1px solid #4880FF;border-radius:8px;">
+                </div>
+            `;
+        }
+
+        select.dataset.prevType = select.value;
+    });
+
+    // Filter functionality
+    document.addEventListener('click', function(e) {
+        // Semua item filter, termasuk dropdown
+        if(e.target.matches('.filter-item[data-category-id], .dropdown-item[data-category-id]')) {
+            e.preventDefault();
+            const categoryId = e.target.dataset.categoryId;
+
+            // Hapus semua active
+            document.querySelectorAll('.filter-item').forEach(i => i.classList.remove('active'));
+            document.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
+
+            // Tambahkan active ke yang diklik
+            e.target.classList.add('active');
+
+            // Filter questions
+            document.querySelectorAll('.question-card').forEach(card => {
+                card.style.display = card.dataset.category == categoryId ? 'flex' : 'none';
+            });
+        }
+
+        // Klik "All"
+        if(e.target.matches('.filter-item.fixed')) {
+            document.querySelectorAll('.filter-item, .dropdown-item').forEach(i => i.classList.remove('active'));
+            e.target.classList.add('active');
+            document.querySelectorAll('.question-card').forEach(card => {
+                card.style.display = 'flex';
+            });
+        }
+    });
+
+    function optionTemplate(qId,i,text,score){
+        return `
+        <div class="option-item" style="display:flex;gap:12px;align-items:center;">
+            <input type="text"
+                name="questions[${qId}][options][${i}][text]"
+                value="${text}"
+                class="option-text-input"
+                placeholder="Option text"
+                style="flex:1;padding:8px 12px;border:1px solid #4880FF;border-radius:6px;">
+            <input type="number"
+                name="questions[${qId}][options][${i}][score]"
+                value="${score}"
+                class="option-score-input"
+                placeholder="0"
+                style="width:50px;padding:8px;border:1px solid #4880FF;border-radius:6px;">
+            <button type="button"
+                        class="delete-option-btn"
+                        style="background: transparent;
+                border: none;
+                padding: 0;
+                margin: 0;
+                color: #000;
+                font-size: 16px;
+                cursor: pointer;">
+                    X
+                </button>
+        </div>`;
+    }
+
+    // Add option function
+    function addOption(questionId) {
+        const wrapper = document.querySelector(`.answer-section[data-question-id="${questionId}"]`);
+        if (!wrapper) return;
+
+        const optionsContainer = wrapper.querySelector('.options-container');
+        if (!optionsContainer) return;
+
+        const index = optionsContainer.querySelectorAll('.option-item').length;
+
+        const newOption = document.createElement('div');
+        newOption.className = 'option-item';
+        newOption.style.display = 'flex';
+        newOption.style.gap = '12px';
+        newOption.style.alignItems = 'center';
+
+        newOption.innerHTML = `
+            <div style="display:flex;align-items:center;gap:8px;flex:1;">
+                <input 
+                    type="text"
+                    name="questions[${questionId}][options][${index}][text]"
+                    placeholder="Option"
+                    class="option-text-input"
+                    style="flex:1;padding:8px 12px;border:1px solid #4880FF;border-radius:6px;font-size:14px;"
+                />
+            </div>
+            <input 
+                type="number"
+                name="questions[${questionId}][options][${index}][score]"
+                placeholder="0"
+                class="option-score-input"
+                style="width:50px;padding:8px;border:1px solid #4880FF;border-radius:6px;font-size:14px;"
+            />
+            <button type="button"
+                class="delete-option-btn"
+                style="background:transparent;border:none;padding:0;margin:0;color:#000;font-size:16px;cursor:pointer;">
+                X
+            </button>
+        `;
+
+        optionsContainer.appendChild(newOption);
     }
 
     // Add option button click
@@ -702,17 +758,20 @@ function optionTemplate(qId,i,text,score){
         }
     });
 
-    // Add new question
+    // ========== TOMBOL ADD QUESTION ==========
     document.getElementById('add-question').addEventListener('click', function(e) {
         e.preventDefault();
         
         const newQuestionId = 'new_' + Date.now();
         const container = document.getElementById('questions-container');
         
+        // Ambil kategori pertama sebagai default
+        const firstCategory = @json($categories->first());
+        
         const newCard = document.createElement('div');
         newCard.className = 'question-card';
         newCard.dataset.questionId = newQuestionId;
-        newCard.dataset.category = '{{ $categories->first()->id ?? 1 }}';
+        newCard.dataset.category = firstCategory ? firstCategory.id : '';
         newCard.innerHTML = `
             <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; padding: 20px; border-radius: 12px; background: #FFFFFF; ">
                 
@@ -735,37 +794,7 @@ function optionTemplate(qId,i,text,score){
                         <div class="answer-section" data-question-id="${newQuestionId}">
                             <div style="display: flex; flex-direction: column; gap: 12px;">
                                 <label style="color: #202224; font-size: 12px; font-weight: 600;">Options</label>
-                                <div class="options-container" style="display: flex; flex-direction: column; gap: 8px;">
-                                    <div class="option-item new-option-template" style="display: flex; gap: 12px; align-items: center; display: none;">
-                                        <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
-                                           
-                                            <input 
-                                                type="text"
-                                                placeholder="Add new option"
-                                                class="new-option-input"
-                                                style="flex: 1; padding: 8px 12px; border: 1px solid #4880FF; border-radius: 6px; font-size: 14px;"
-                                            />
-                                        </div>
-                                        <input 
-                                            type="number"
-                                            placeholder="0"
-                                            class="new-option-score"
-                                            style="width: 50px; padding: 8px; border: 1px solid #4880FF; border-radius: 6px; font-size: 14px;"
-                                        />
-                                        <button type="button"
-                    class="delete-option-btn"
-                    style="background: transparent;
-            border: none;
-            padding: 0;
-            margin: 0;
-            color: #000;
-            font-size: 16px;
-            cursor: pointer;">
-                X
-            </button>
-        
-                                    </div>
-                                </div>
+                                <div class="options-container" style="display: flex; flex-direction: column; gap: 8px;"></div>
                                 <button type="button" class="add-option-btn" data-question-id="${newQuestionId}" style="align-self: flex-start; padding: 8px 16px; background: #4880FF; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer;">
                                     <i class="fas fa-plus" style="margin-right: 6px;"></i>Add Option
                                 </button>
@@ -869,6 +898,9 @@ function optionTemplate(qId,i,text,score){
         // Add first option
         addOption(newQuestionId);
         
+        // Initialize answer memory for new question
+        answerMemory[newQuestionId] = { pilihan: [], isian: '' };
+        
         // Initialize textarea auto-resize
         const textarea = newCard.querySelector('.question-textarea');
         textarea.addEventListener('input', function() {
@@ -880,39 +912,12 @@ function optionTemplate(qId,i,text,score){
         newCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         
         questionCounter++;
+        
+        console.log('New question added with ID:', newQuestionId);
     });
 
-    // Category filter functionality
-    document.querySelectorAll('.filter-item[data-category-id]').forEach(item => {
-        item.addEventListener('click', function() {
-            const categoryId = this.dataset.categoryId;
-            
-            // Update UI
-            document.querySelectorAll('.filter-item').forEach(i => i.classList.remove('active'));
-            this.classList.add('active');
-            
-            // Filter questions
-            document.querySelectorAll('.question-card').forEach(card => {
-                const cardCategory = card.dataset.category;
-                card.style.display = cardCategory == categoryId ? 'flex' : 'none';
-            });
-        });
-    });
-
-    // All filter
-    document.querySelector('.filter-item.fixed').addEventListener('click', function() {
-        document.querySelectorAll('.filter-item').forEach(i => i.classList.remove('active'));
-        this.classList.add('active');
-        document.querySelectorAll('.question-card').forEach(card => {
-            card.style.display = 'flex';
-        });
-    });
-
-    // Setup initial option events
-    setupOptionEvents();
-});
-
-document.addEventListener('click', function(e) {
+    // Delete option button
+    document.addEventListener('click', function(e) {
         if (e.target.classList.contains('delete-option-btn')) {
             const item = e.target.closest('.option-item');
             if (item) {
@@ -920,12 +925,15 @@ document.addEventListener('click', function(e) {
             }
         }
     });
+
+    console.log('Initialization complete');
+});
 </script>
 
 <style>
     .filter-item.active,
     .dropdown-item.active {
-        color: #4379EE !important; /* biru */
+        color: #4379EE !important;
         font-weight: 600;
     }
 </style>

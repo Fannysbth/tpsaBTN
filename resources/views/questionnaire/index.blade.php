@@ -179,22 +179,45 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // FILTER DROPDOWN
-    dropdownItems.forEach(item => {
-        item.addEventListener('click', function (e) {
-            e.preventDefault();
-            const id = this.dataset.categoryId;
-            resetActive();
+    // FILTER DROPDOWN
+dropdownItems.forEach(item => {
+    item.addEventListener('click', function (e) {
+        e.preventDefault();
+        const id = this.dataset.categoryId;
+        resetActive();
 
-            rows.forEach(row => {
-                row.style.display =
-                    row.dataset.categoryId === id ? 'grid' : 'none';
-            });
+        // kasih active ke item dropdown yang diklik
+        this.classList.add('active');
+
+        rows.forEach(row => {
+            row.style.display =
+                row.dataset.categoryId === id ? 'grid' : 'none';
         });
     });
+});
+
 
 });
 </script>
 
+<style>
+.filter-item.active,
+.dropdown-item.active {
+    background-color: #4880FF;
+    color: #fff;
+}
 
+.filter-item.active .divider {
+    background-color: #fff;
+}
 
+.filter-item {
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.filter-item:hover {
+    background-color: #e8efff;
+}
+</style>
 @endsection

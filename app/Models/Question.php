@@ -14,6 +14,7 @@ class Question extends Model
         'question_text',
         'question_type',
         'clue',
+        'sub',
         'indicator',
         'has_attachment',
         'attachment_text',

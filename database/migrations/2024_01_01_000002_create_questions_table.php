@@ -19,6 +19,7 @@ return new class extends Migration
             $table->text('attachment_text')->nullable();
             $table->boolean('is_active')->default(true);
             $table->integer('order')->default(0);
+            $table->string('sub')->nullable()->after('category_id');
             $table->timestamps();
         });
     }
