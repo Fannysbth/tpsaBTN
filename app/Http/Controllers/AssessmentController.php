@@ -39,10 +39,7 @@ class AssessmentController extends Controller
         $assessments = $query->get();
 
 
-    $assessments = Assessment::whereMonth('assessment_date', $month)
-        ->whereYear('assessment_date', $year)
-        ->orderBy('assessment_date', 'desc')
-        ->get();
+
 
     // simpan URL ini di session
     session(['assessment_list_url' => request()->fullUrl()]);
@@ -52,7 +49,7 @@ class AssessmentController extends Controller
     $totalQuestions = Question::where('is_active', true)->count();
     $totalAssessments = Assessment::count();
 
-    return view('dashboard.index', compact(
+    return view('assessment.index', compact(
         'assessments',
         'month',
         'year',
@@ -239,7 +236,7 @@ public function update(Request $request, $id)
         DB::commit();
 
         // Redirect kembali ke halaman list yang disimpan di session
-$redirectUrl = session('assessment_list_url', route('dashboard.index'));
+$redirectUrl = session('assessment_list_url', route('assessment.index'));
 
 return redirect($redirectUrl)
        ->with('success', 'Assessment berhasil diperbarui. Jawaban lama dihapus dan siap diisi ulang.');
@@ -263,10 +260,10 @@ public function destroy(Assessment $assessment)
         // Hapus assessment
         $assessment->delete();
 
-        return redirect()->route('dashboard.index')
+        return redirect()->route('assessment.index')
                          ->with('success', 'Assessment berhasil dihapus.');
     } catch (\Exception $e) {
-        return redirect()->route('dashboard.index')
+        return redirect()->route('assessment.index')
                          ->with('error', 'Gagal menghapus assessment: ' . $e->getMessage());
     }
 }

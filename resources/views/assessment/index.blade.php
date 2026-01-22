@@ -1,7 +1,5 @@
 @extends('layouts.app')
 
-@section('title', 'Assessment')
-
 @section('content')
 
 {{-- HEADER COMPONENT --}}
@@ -10,7 +8,9 @@
     <i class="fa-solid fa-shield-halved icon-header"></i>
 </x-header>
 
-<div style="max-width: 1202px; box-sizing: border-box; background: #F5F6FA; padding: 1px; margin: 10px 0 0 10px;">
+<div class="assessment-page">
+
+
 
 <div class="toolbar">
     <a href="{{ route('assessment.create') }}" class="btn-edit">
@@ -19,15 +19,26 @@
     </a>
 
     {{-- MONTH DROPDOWN --}}
-    <form method="GET" action="{{ route('assessment.index') }}">
-        <select name="month" class="button-row-view" style="margin-right: 30px;" onchange="this.form.submit()">
-            @for($i=1;$i<=12;$i++)
-                <option value="{{ $i }}" {{ $i==$month?'selected':'' }}>
-                    {{ date('F', mktime(0,0,0,$i,1)) }}
-                </option>
-            @endfor
-        </select>
-    </form>
+    <form method="GET" action="{{ route('assessment.index') }}" style="display:flex; gap:10px; align-items:center; margin-right: 30px;">
+    {{-- MONTH --}}
+    <select name="month" class="button-row-view" onchange="this.form.submit()">
+        <option value="">All Month</option>
+        @for($i=1;$i<=12;$i++)
+            <option value="{{ $i }}" {{ $i==$month?'selected':'' }}>
+                {{ date('F', mktime(0,0,0,$i,1)) }}
+            </option>
+        @endfor
+    </select>
+
+    {{-- YEAR --}}
+    <select name="year" class="button-row-view" onchange="this.form.submit()">
+        <option value="">All Year</option>
+        @for($y = date('Y'); $y >= 2020; $y--)
+            <option value="{{ $y }}" {{ $y==$year?'selected':'' }}>{{ $y }}</option>
+        @endfor
+    </select>
+</form>
+
 </div>
 
 @if(session('success'))
@@ -109,4 +120,5 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+</div>
 @endsection

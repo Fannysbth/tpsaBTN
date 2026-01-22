@@ -44,7 +44,6 @@ Route::prefix('assessment')->group(function () {
     Route::get('/{assessment}/preview', [AssessmentController::class, 'previewExport'])->name('assessment.preview');
     Route::post('/{assessment}/import', [AssessmentController::class, 'import'])->name('assessment.import');
     Route::post('/{assessment}/send-email', [AssessmentController::class, 'sendEmail'])->name('assessment.send-email');
-    Route::get('/{assessment}/export', [AssessmentController::class, 'export'])->name('assessment.export');
     Route::delete('/{assessment}', [AssessmentController::class, 'destroy'])->name('assessment.destroy');
 
 });

@@ -60,7 +60,7 @@
 
         {{-- Tombol Cancel dan Save --}}
         <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px;">
-            <a href="{{ route('questionnaire.index') }}"
+            <a href="{{ route('questionnaire.editAll') }}"
                 style="padding:12px 24px; background:white; border:1px solid #4880FF; color:#4880FF; border-radius:8px;">Cancel</a>
             <button type="submit" id="save-btn"
                 style="padding:12px 24px; background:#4379EE; color:white; border:none; border-radius:8px;">Save</button>
@@ -141,37 +141,40 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             const newCard = document.createElement('div');
-            newCard.className = 'question-card collapsed';
+            newCard.className = 'question-card';
             newCard.dataset.questionId = newQuestionId;
-            newCard.style.marginBottom = '12px';
-            newCard.style.padding = '16px';
+            newCard.style.marginBottom = '16px';
+            newCard.style.border = '1px solid #E0E0E0';
             newCard.style.borderRadius = '12px';
             newCard.style.background = '#FFFFFF';
-            newCard.style.border = '1px solid #E8E8E8';
+            newCard.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)';
             newCard.style.cursor = 'pointer';
             newCard.style.transition = 'all 0.3s ease';
             
             newCard.innerHTML = `
-                <div class="question-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
-                    <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-                        <div style="width: 24px; height: 24px; border-radius: 50%; background: #F0F7FF; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #4880FF;">
+               <div class="question-header" style="padding: 20px; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 16px;">
+                        <div style="width: 32px; height: 32px; border-radius: 50%; background: #F0F7FF; 
+                                          display: flex; align-items: center; justify-content: center; font-size: 14px; color: #4880FF; font-weight: bold;">
                             ${questionCounter}
                         </div>
-                        <div style="flex: 1;">
-                            <div class="question-preview" style="font-size: 14px; color: #202224; font-weight: 500;">
+                        <div >
+                            <div style="font-weight: 600; color: #202224; font-size: 16px;">
                                 New Question
                             </div>
-                            <div style="font-size: 12px; color: #6C757D; margin-top: 2px;">
-                                <span class="question-type-preview">Multiple Choice</span>
+                            <div style="font-size: 12px; color: #6C757D; margin-top: 4px;">
+                                <span>Multiple Choice</span>
+                                        • 
+                                <span>${categoryValue}</span>
                             </div>
                         </div>
                     </div>
-                    <div class="expand-icon" style="transform: rotate(0deg); transition: transform 0.3s;">
-                        <i class="fas fa-chevron-down" style="color: #6C757D; font-size: 14px;"></i>
+                    <div class="expand-icon" style="transition: transform 0.3s;">
+                                <i class="fas fa-chevron-down" style="color: #6C757D; font-size: 16px;"></i>
                     </div>
                 </div>
                 
-                <div class="question-body" style="display: none; margin-top: 20px;">
+                <div class="question-body" style="display: none; padding: 0 20px 20px 20px; border-top: 1px solid #F0F0F0;">
                     <div style="display: flex; gap: 30px; position: relative;">
                         <div style="flex: 1; display: flex; flex-direction: column; gap: 16px;">
                             <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -197,16 +200,18 @@ document.addEventListener('DOMContentLoaded', function() {
                                     </button>
                                 </div>
                             </div>
-                            
-                            <button 
-                                type="button" 
-                                class="delete-question-btn"
-                                data-question-id="${newQuestionId}"
-                                style="align-self: flex-start; padding: 10px 20px; background: #FF4D4F; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.2s; margin-top: 10px;"
-                                onmouseover="this.style.background='#FF3333'"
-                                onmouseout="this.style.background='#FF4D4F'">
-                                <i class="fas fa-trash" style="margin-right: 6px;"></i>Delete Question
-                            </button>
+                            <div style="margin-top: auto;">
+    <button 
+        type="button" 
+        class="delete-question-btn"
+        data-question-id="${newQuestionId}"
+        style="align-self: flex-start; padding: 10px 20px; background: #FF4D4F; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.2s;"
+        onmouseover="this.style.background='#FF3333'"
+        onmouseout="this.style.background='#FF4D4F'">
+        <i class="fas fa-trash" style="margin-right: 6px;"></i>Delete Question
+    </button>
+</div>
+
                         </div>
                         
                         <div style="flex: 1; display: flex; flex-direction: column; gap: 16px;">
@@ -454,22 +459,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 answerState[questionId] = { pilihan: [], isian: '' };
             }
             
-            const prevType = select.dataset.prevType || select.value;
+            const prevType = select.dataset.prevType;
             
             if (prevType === 'pilihan') {
-                const opts = [];
-                answerSection.querySelectorAll('.option-item').forEach(item => {
-                    const textInput = item.querySelector('.option-text-input');
-                    const scoreInput = item.querySelector('.option-score-input');
-                    if (textInput && scoreInput) {
-                        opts.push({
-                            text: textInput.value,
-                            score: scoreInput.value
-                        });
-                    }
-                });
-                answerState[questionId].pilihan = opts;
-            } else {
+    answerState[questionId].pilihan = Array.from(
+        answerSection.querySelectorAll('.option-item')
+    ).map(item => ({
+        text: item.querySelector('.option-text-input')?.value || '',
+        score: item.querySelector('.option-score-input')?.value || ''
+    }));
+}else {
                 const clueInput = answerSection.querySelector('input[name$="[clue]"]');
                 if (clueInput) {
                     answerState[questionId].isian = clueInput.value;
@@ -495,8 +494,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (saved && saved.length > 0) {
                     saved.forEach((opt, index) => {
-                        addOption(questionId, opt.text, opt.score, index);
-                    });
+    addOption(questionId, opt.text, opt.score, index);
+});
                 } else {
                     addOption(questionId, '', '', 0);
                 }
@@ -509,7 +508,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                name="questions[${questionId}][clue]"
                                value="${savedClue}"
                                placeholder="Optional Clue"
-                               style="padding:12px; border:1px solid #4880FF; border-radius:8px;">
+                               style="padding:8px 12px; border:1px solid #4880FF; border-radius:8px;">
                     </div>`;
             }
             
@@ -562,27 +561,39 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
-    .question-card {
-        transition: all 0.3s ease;
-    }
-    
-    .question-card:hover {
-        border-color: #4880FF !important;
-    }
-    
-    .question-card.collapsed:hover {
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    
+.question-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .question-card:hover {
+            border-color: #4880FF !important;
+            box-shadow: 0 4px 12px rgba(72, 128, 255, 0.1);
+        }
+        
+        .question-header {
+            transition: background-color 0.2s;
+        }
+        
+        .question-header:hover {
+            background-color: rgba(72, 128, 255, 0.02);
+        }
+        
+        .expand-icon {
+            transition: transform 0.3s;
+        }
+        
+        .question-body {
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
     .expand-icon i {
         transition: transform 0.3s ease;
     }
-    
-    .question-header:hover {
-        background: rgba(72, 128, 255, 0.02);
-        border-radius: 8px;
-        padding: 4px;
-        margin: -4px;
-    }
+
 </style>
 @endsection
