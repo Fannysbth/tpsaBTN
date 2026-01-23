@@ -381,31 +381,53 @@
 
 .filter-edit-wrapper {
     display: flex;
-    align-items: center;
-    gap: 5px;
-    margin:  10px;
+    justify-content:space-between;
+    align-items: stretch; /* ini kuncinya */
+    max-width: 100%;
+    gap:10px;
+    margin: 20px;
+
 }
 
-.filter-container {
-    flex: 1;
+.filter-box {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #F8F9FA;
-    border: 1px solid #D4D4D4;
-    padding: 0 30px;
-    border-radius: 10px;
+    flex-wrap: wrap;
+    width: 85%;
+    justify-content:space-between;
+    background: #ffffff;
+    padding: 10px;
+    border-radius: 12px;
+}
+
+
+.add-wrapper {
+    display: flex;
     overflow: visible;
 }
 
-.filter-item {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-	padding: 0 0 0 10px;
-    gap: 50px;
-    white-space: nowrap;
+.add-wrapper .btn {
+    width: 100px; /* samain sama filter */
+    border-radius: 12px;
+    font-size: 14px;
 }
+
+.filter-item {
+    padding: 6px 6px;
+    font-size: 14px;
+    cursor: pointer;
+    color: #555;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.filter-item:hover,
+.filter-item.active {
+    color: #4379EE;
+    background: rgba(67,121,238,0.1);
+    border-color: #4379EE;
+}
+
 
 .filter-text {
     font-size: 14px;
@@ -420,11 +442,6 @@
     text-overflow: ellipsis;
 }
 
-.divider {
-    width: 1px;
-    height: 40px;
-    background: #D4D4D4;
-}
 
 .filter-more {
     flex-shrink: 0;
@@ -522,16 +539,7 @@ select:focus {
     margin-bottom: 25px;
 }
 
-/* Header row */
-.question-header {
-    background: #FCFCFC;
-    border-bottom: 1px solid #D4D4D4;
-    padding: 15px 30px;
-    display: grid;
-    grid-template-columns: 30px 100px 1fr 125px 200px 50px;
-    font-weight: 700;
-    font-size: 14px;
-}
+
 /* Style untuk tombol */
 .btn {
     padding: 6px 12px;
@@ -547,10 +555,6 @@ select:focus {
     transition: all 0.3s ease;
 }
 
-.btn-sm {
-    padding: 4px 8px;
-    font-size: 12px;
-}
 
 .btn-warning {
     background-color: #ffc107;
@@ -625,9 +629,20 @@ select:focus {
 .question-row {
     padding: 14px 30px;
     display: grid;
-    grid-template-columns: 30px 100px 1fr 125px 200px 50px;
+    grid-template-columns: 30px 80px 120px 80px 1fr 200px  50px;
     align-items: center;
     border-bottom: 1px solid #EEE;
+    font-size: 14px;
+}
+
+/* Header row */
+.question-header {
+    background: #FCFCFC;
+    border-bottom: 1px solid #D4D4D4;
+    padding: 15px 30px;
+    display: grid;
+    grid-template-columns: 30px 80px 120px 80px 1fr 200px  50px;
+    font-weight: 700;
     font-size: 14px;
 }
 

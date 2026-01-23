@@ -8,56 +8,80 @@
     <i class="fa-solid fa-shield-halved icon-header"></i>
 </x-header>
 
+
+
+<div  style="max-width: 1202px; box-sizing: border-box; background: #F5F6FA; padding: 1px; margin: 10px 0 0 10px;">
+
+    <div class="filter-edit-wrapper">
+        <div class="filter-box">
 @php
     $visibleCategories = $categories->take(3);
     $moreCategories = $categories->slice(3);
 @endphp
 
-<div  style="max-width: 1202px; box-sizing: border-box; background: #F5F6FA; padding: 1px; margin: 10px 0 0 10px;">
-
-    <div class="filter-edit-wrapper">
-        <div class="filter-container">
-
             {{-- ALL --}}
-            <div class="filter-item fixed active">
-                <span class="filter-text">All</span>
-                <div class="divider"></div>
-            </div>
+            <span class="filter-item active" data-category-id="">All</span>
 
             {{-- 3 KATEGORI PERTAMA --}}
             @foreach ($visibleCategories as $category)
-                <div class="filter-item" data-category-id="{{ $category->id }}">
-                    <span class="filter-text truncate">
+                <span class="filter-item" 
+                     data-category-id="{{ $category->id }}">
                         {{ $category->name }}
-                    </span>
-                    <div class="divider"></div>
-                </div>
+                </span>
             @endforeach
 
             {{-- MORE --}}
             @if ($moreCategories->count())
-                <div class="dropdown filter-more">
-                    <button class="dropdown-toggle btn btn-link p-0 text-decoration-none"
-                            type="button"
-                            data-bs-toggle="dropdown">
-                        More...
-                    </button>
+<div class="dropdown" style="padding:5px;">
+    <span
+        class="dropdown-toggle filter-item"
+        data-bs-toggle="dropdown"
+        id="moreFilter"
+        style="align-items: stretch; height: 100%;"
+    >
+        <span id="moreFilterText">More</span>
+    </span>
 
-                    <ul class="dropdown-menu dropdown-menu-end mt-2">
-                        @foreach ($moreCategories as $category)
-                            <li>
-                                <a class="dropdown-item"
-                                   href="#"
-                                   data-category-id="{{ $category->id }}">
-                                    {{ $category->name }}
-                                </a>
-                            </li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
-
+    <div class="dropdown-menu">
+        @foreach ($moreCategories as $category)
+            <a
+                href="#"
+                class="dropdown-item filter-item"
+                data-category-id="{{ $category->id }}">
+                {{ $category->name }}
+            </a>
+        @endforeach
+    </div>
+</div>
+@endif
         </div>
+
+        {{-- INDICATOR FILTER --}}
+<div class="dropdown"  style="display:flex; padding:10px;background:#FFFFFF; border-radius: 10px;
+    border: 1px solid transparent; align-items:center;">
+    <span
+        class="dropdown-toggle filter-item"
+        data-bs-toggle="dropdown"
+        id="indicatorFilter"
+    >
+        <span id="indicatorFilterText">Indicator</span>
+    </span>
+
+    <div class="dropdown-menu">
+        <a href="#" class="dropdown-item indicator-item" data-indicator="">
+            All Indicator
+        </a>
+        <a href="#" class="dropdown-item indicator-item" data-indicator="high">
+            High
+        </a>
+        <a href="#" class="dropdown-item indicator-item" data-indicator="medium">
+            Medium
+        </a>
+        <a href="#" class="dropdown-item indicator-item" data-indicator="low">
+            Low
+        </a>
+    </div>
+</div>
 
         <a href="{{ route('questionnaire.editAll') }}"    class="btn-edit">
     <i class="fas fa-edit"></i>
@@ -68,15 +92,16 @@
     </div>
 
     {{-- QUESTION TABLE --}}
-    <div class="question-card" style="margin-top: 10px; margin-right: 30px;">
+    <div class="question-card" style="margin-top: 10px; margin-right: 20px; margin-left:20px;">
 
         {{-- HEADER --}}
         <div class="question-header">
             <div >No</div>
             <div>Category</div>
+            <div style="text-align:center;">Sub Category</div>
+            <div style="text-align:center;">Indicator</div>
             <div style= "text-align: center;">Question</div>
             <div style= "text-align: center;">Type Answer</div>
-            <div style="text-align: center;">Attachment</div>
             <div style= "text-align: center;">Aksi</div>
         </div>
         
@@ -84,56 +109,64 @@
         {{-- DATA --}} 
         @foreach($categories as $category)
     @foreach($category->questions as $question)
-        <div class="question-row" data-category-id="{{ $category->id }}">
+        <div class="question-row" 
+             data-category-id="{{ $category->id }}"
+             data-indicator="{{ implode(',', json_decode($question->indicator ?? '[]', true)) }}">
+
             <div>{{ $no++ }}</div>
             <div>{{ $category->name }}</div>
-            <div>{{ $question->question_text }}</div>
+            <div style="text-align:center;">{{ $question->sub ?? '-' }}</div>
 
-                    <div>
-    @if($question->question_type === 'pilihan')
-        <select 
-            style="
-                padding:6px 8px;
-                border-radius:6px;
-                margin:0 10px;
-                border:1px solid #4880FF;
-                max-width:300px;
-                width:100%;
-                overflow:hidden;
-                text-overflow:ellipsis;
-                white-space:nowrap;
-            "
-        >
-            <option value="">-- Pilihan --</option>
-            @foreach($question->options as $opt)
-                <option>{{ $opt->option_text }}</option>
-            @endforeach
-        </select>
+            <div style="text-align:center;">
+    @php
+        $indicators = json_decode($question->indicator ?? '[]', true);
+        $colors = [
+            'high' => '#E74C3C',    // merah
+            'medium' => '#F1C40F',  // kuning
+            'low' => '#2ECC71',     // hijau
+        ];
+    @endphp
+
+    @if($indicators)
+        @foreach($indicators as $index => $indicator)
+            <span style="color: {{ $colors[$indicator] ?? '#000' }}; font-weight:600;">
+                {{ strtoupper($indicator) }}
+            </span>@if(!$loop->last), @endif
+        @endforeach
     @else
-        <span style="color:#000; justify-content:center; display:flex;">
-            {{ $question->clue ?? '-' }}
-        </span>
+        -
     @endif
 </div>
 
 
-                    <div class="attachment-text">
-                        {{ $question->has_attachment ? $question->attachment_text : '-' }}
-                    </div>
+            <div style="margin:0 10px">{{ $question->question_text }}</div>
 
-                    <div class="action-btns " style="margin-left: 10px;">
-                        
+            <div style="text-align:center; margin:0 10px;padding: 0 30px;">
+            @if($question->question_type === 'pilihan')
+                <select style="padding:6px 8px;border-radius:6px;margin:0 10px;border:1px solid #4880FF;max-width:300px;
+                              width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                <option value="">-- Pilihan --</option>
+                @foreach($question->options as $opt)
+                    <option>{{ $opt->option_text }}</option>
+                @endforeach
+                </select>
+            @else
+                <span style="color:#000; justify-content:center; display:flex;">
+                {{ $question->clue ?? '-' }}
+                </span>
+            @endif
+            </div>
 
-                        <button class="btn btn-sm btn-danger delete-question"
-                                data-id="{{ $question->id }}">
-                            <i class="fas fa-trash" ></i>
-                        </button>
-                    </div>
-                </div>
-            @endforeach
-        @endforeach
-
-    </div>
+            <div class="action-btns " style="margin-left: 10px;">
+                <button class="btn btn-sm btn-danger delete-question"
+                        data-id="{{ $question->id }}">
+                <i class="fas fa-trash" ></i>
+                </button>
+            </div>
+        </div>
+    @endforeach
+@endforeach
+ </div>
 </div>
 
 
@@ -142,82 +175,105 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    const allBtn = document.querySelector('.filter-item.fixed');
-    const filterItems = document.querySelectorAll('.filter-item[data-category-id]');
-    const dropdownItems = document.querySelectorAll('.dropdown-item');
+    let activeCategory = null;
+    let activeIndicator = null;
+
     const rows = document.querySelectorAll('.question-row');
 
-    function resetActive() {
-        document.querySelectorAll('.filter-item').forEach(el => {
-            el.classList.remove('active');
+    function applyFilter() {
+        rows.forEach(row => {
+            const rowCategory = row.dataset.categoryId;
+            const rowIndicators = (row.dataset.indicator || '').split(',');
+
+            const matchCategory =
+                !activeCategory || rowCategory === activeCategory;
+
+            const matchIndicator =
+                !activeIndicator || rowIndicators.includes(activeIndicator);
+
+            row.style.display =
+                matchCategory && matchIndicator ? 'grid' : 'none';
         });
     }
 
-    function showAll() {
-        rows.forEach(row => row.style.display = 'grid');
-    }
+    /* ================= CATEGORY FILTER ================= */
 
-    // ALL
-    allBtn.addEventListener('click', function () {
-        resetActive();
-        this.classList.add('active');
-        showAll();
-    });
+    document
+        .querySelectorAll('.filter-item[data-category-id]')
+        .forEach(item => {
+            item.addEventListener('click', function (e) {
+                e.preventDefault();
 
-    // FILTER BUTTON
-    filterItems.forEach(item => {
-        item.addEventListener('click', function () {
-            const id = this.dataset.categoryId;
-            resetActive();
-            this.classList.add('active');
+                activeCategory = this.dataset.categoryId || null;
 
-            rows.forEach(row => {
-                row.style.display =
-                    row.dataset.categoryId === id ? 'grid' : 'none';
+                // active state category aja
+                document
+                    .querySelectorAll('.filter-item[data-category-id]')
+                    .forEach(i => i.classList.remove('active'));
+
+                this.classList.add('active');
+
+                // reset text more kalau klik All / kategori utama
+                if (!this.closest('.dropdown-menu')) {
+                    const moreText = document.getElementById('moreFilterText');
+                    if (moreText) moreText.textContent = 'More';
+                }
+
+                applyFilter();
             });
         });
-    });
 
-    // FILTER DROPDOWN
-    // FILTER DROPDOWN
-dropdownItems.forEach(item => {
-    item.addEventListener('click', function (e) {
-        e.preventDefault();
-        const id = this.dataset.categoryId;
-        resetActive();
+    /* ================= MORE DROPDOWN ================= */
 
-        // kasih active ke item dropdown yang diklik
-        this.classList.add('active');
+    document
+        .querySelectorAll('.dropdown-menu .filter-item')
+        .forEach(item => {
+            item.addEventListener('click', function (e) {
+                e.preventDefault();
 
-        rows.forEach(row => {
-            row.style.display =
-                row.dataset.categoryId === id ? 'grid' : 'none';
+                activeCategory = this.dataset.categoryId;
+
+                document
+                    .querySelectorAll('.filter-item[data-category-id]')
+                    .forEach(i => i.classList.remove('active'));
+
+                this.classList.add('active');
+
+                document.getElementById('moreFilterText').textContent =
+                    this.textContent.trim();
+
+                applyFilter();
+            });
         });
-    });
-});
 
+    /* ================= INDICATOR FILTER ================= */
+
+    document
+        .querySelectorAll('.indicator-item')
+        .forEach(item => {
+            item.addEventListener('click', function (e) {
+                e.preventDefault();
+
+                activeIndicator = this.dataset.indicator || null;
+
+                document
+                    .querySelectorAll('.indicator-item')
+                    .forEach(i => i.classList.remove('active'));
+
+                this.classList.add('active');
+
+                document.getElementById('indicatorFilterText').textContent =
+                    this.textContent.trim() === 'All Indicator'
+                        ? 'Indicator'
+                        : this.textContent.trim();
+
+                applyFilter();
+            });
+        });
 
 });
 </script>
 
-<style>
-.filter-item.active,
-.dropdown-item.active {
-    background-color: #4880FF;
-    color: #fff;
-}
 
-.filter-item.active .divider {
-    background-color: #fff;
-}
 
-.filter-item {
-    cursor: pointer;
-    transition: 0.2s;
-}
-
-.filter-item:hover {
-    background-color: #e8efff;
-}
-</style>
 @endsection

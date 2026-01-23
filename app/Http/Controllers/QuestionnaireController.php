@@ -13,13 +13,22 @@ use Illuminate\Support\Facades\Log;
 class QuestionnaireController extends Controller
 {
     public function index()
-    {
-        $categories = Category::with(['questions' => function($query) {
-            $query->orderBy('order');
-        }])->get();
+{
+    $categories = Category::with(['questions' => function ($query) {
+        $query->orderBy('order');
+    }])->get();
 
-        return view('questionnaire.index', compact('categories'));
-    }
+    // 🔥 tentukan berapa kategori yang tampil di bar utama
+    $mainCategories = $categories->take(3);
+    $moreCategories = $categories->skip(3);
+
+    return view('questionnaire.index', compact(
+        'categories',
+        'mainCategories',
+        'moreCategories'
+    ));
+}
+
 
     // Menampilkan semua pertanyaan untuk diedit
     public function editAll()
@@ -68,10 +77,11 @@ if ($text === '') {
                 $question->question_text = $text;
 
                 $question->question_type = $data['question_type'] ?? 'pilihan';
-                $question->category_id = $data['category_id'] ?? Category::first()->id;
-                $question->indicator = $data['indicator'] ?? [];
+                $question->category_id = $data['category_id'] ?? null;
+                $question->indicator = json_encode($data['indicator'] ?? []);
                 $question->attachment_text = $data['attachment_text'] ?? null;
                 $question->clue = $data['clue'] ?? null;
+                $question->sub = $data['sub'] ?? null;
 
 
                 $question->has_attachment = !empty($data['attachment_text']);
@@ -89,30 +99,12 @@ if ($text === '') {
                     // Add new options
                     foreach ($data['options'] ?? [] as $optionId => $optionData) {
                         if (!empty($optionData['text'])) {
-                            if (str_starts_with($optionId, 'new_')) {
-                                // New option
-                                QuestionOption::create([
-                                    'question_id' => $question->id,
-                                    'option_text' => $optionData['text'],
-                                    'score' => $optionData['score'] ?? 0,
-                                ]);
-                            } else {
-                                // Update existing option
-                                $existingOption = QuestionOption::find($optionId);
-                                if ($existingOption) {
-                                    $existingOption->update([
-                                        'option_text' => $optionData['text'],
-                                        'score' => $optionData['score'] ?? 0,
-                                    ]);
-                                } else {
-                                    // Fallback: create new option
-                                    QuestionOption::create([
-                                        'question_id' => $question->id,
-                                        'option_text' => $optionData['text'],
-                                        'score' => $optionData['score'] ?? 0,
-                                    ]);
-                                }
-                            }
+                           QuestionOption::create([
+    'question_id' => $question->id,
+    'option_text' => $optionData['text'],
+    'score' => $optionData['score'] ?? 0,
+]);
+
                         }
                     }
                 } else {
