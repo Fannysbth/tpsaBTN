@@ -14,12 +14,24 @@ class CategoryController extends Controller
 }
 
 
-
 public function destroy($id)
 {
-    Category::findOrFail($id)->delete();
-    return redirect()->back()->with('success', 'Category deleted');
+    $category = Category::with('questions.options')->findOrFail($id);
+
+    // hapus options → questions → category
+    foreach ($category->questions as $question) {
+        $question->options()->delete();
+        $question->delete();
+    }
+
+    $category->delete();
+
+    return redirect()->back()->with(
+        'success',
+        'Category & all related questions deleted'
+    );
 }
+
 
 
     public function store(Request $request)
@@ -48,6 +60,7 @@ public function destroy($id)
             'attachment_text' => $q['attachment_text'] ?? null,
             'clue'            => $q['clue'] ?? null,
             'has_attachment'  => !empty($q['attachment_text']),
+            'sub' => $q['sub'] ?? null,
         ]);
 
         if (($q['question_type'] ?? 'pilihan') === 'pilihan' && !empty($q['options'])) {
@@ -65,6 +78,6 @@ public function destroy($id)
 
 
 
-        return redirect()->route('questionnaire.index')->with('success', 'Category created successfully!');
+        return redirect()->back()->with('success', 'Category created successfully!');
     }
 }

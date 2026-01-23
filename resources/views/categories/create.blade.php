@@ -6,6 +6,30 @@
     <i class="fa-solid fa-shield-halved icon-header"></i>
 </x-header>
 
+<div style="display:flex; flex-wrap:wrap; gap:12px; margin:10px 40px">
+    @foreach($categories as $category)
+        <div class="category-chip">
+            <span class="category-name">{{ $category->name }}</span>
+
+            <button
+                type="button"
+                class="delete-category-btn"
+                data-id="{{ $category->id }}"
+                data-name="{{ $category->name }}"
+                title="Delete category"
+            >
+                ×
+            </button>
+        </div>
+    @endforeach
+</div>
+
+<form id="delete-category-form" method="POST" style="display:none;">
+    @csrf
+    @method('DELETE')
+</form>
+
+
 <div style="background:#FFFFFF; border-radius:14px; padding:26px; margin:20px 64px 60px 36px; box-shadow:6px 6px 54px #0000000D;">
    <h3 style="font-size: 24px; font-weight: bold; color: #202224; margin-bottom: 12px;">Add Categories</h3>
 
@@ -67,6 +91,11 @@
         </div>
     </form>
 </div>
+<form id="delete-category-form" method="POST" style="display:none;">
+    @csrf
+    @method('DELETE')
+</form>
+
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -558,6 +587,30 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('Initialization complete');
 });
+
+
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.delete-category-btn');
+    if (!btn) return;
+
+    const categoryId = btn.dataset.id;
+    const categoryName = btn.dataset.name;
+
+    const confirmDelete = confirm(
+        `PERINGATAN!\n\n` +
+        `Jika category "${categoryName}" dihapus,\n` +
+        `SEMUA pertanyaan di dalamnya juga akan TERHAPUS.\n\n` +
+        `Yakin ingin melanjutkan?`
+    );
+
+    if (confirmDelete) {
+        const form = document.getElementById('delete-category-form');
+        form.action = `/categories/${categoryId}`;
+        form.submit();
+    }
+});
+
+
 </script>
 
 <style>

@@ -106,12 +106,18 @@
         </div>
         
 @php $no = 1; @endphp
+
         {{-- DATA --}} 
         @foreach($categories as $category)
     @foreach($category->questions as $question)
+    @php
+    $indicatorArray = is_array($question->indicator)
+        ? $question->indicator
+        : json_decode($question->indicator ?? '[]', true);
+@endphp
         <div class="question-row" 
              data-category-id="{{ $category->id }}"
-             data-indicator="{{ implode(',', json_decode($question->indicator ?? '[]', true)) }}">
+             data-indicator="{{ implode(',', $indicatorArray) }}">
 
             <div>{{ $no++ }}</div>
             <div>{{ $category->name }}</div>
@@ -119,7 +125,7 @@
 
             <div style="text-align:center;">
     @php
-        $indicators = json_decode($question->indicator ?? '[]', true);
+        $indicators = $indicatorArray;
         $colors = [
             'high' => '#E74C3C',    // merah
             'medium' => '#F1C40F',  // kuning
@@ -139,12 +145,12 @@
 </div>
 
 
-            <div style="margin:0 10px">{{ $question->question_text }}</div>
+            <div style="margin:0 20px">{{ $question->question_text }}</div>
 
-            <div style="text-align:center; margin:0 10px;padding: 0 30px;">
+            <div style="text-align:center; margin:0 5px;">
             @if($question->question_type === 'pilihan')
-                <select style="padding:6px 8px;border-radius:6px;margin:0 10px;border:1px solid #4880FF;max-width:300px;
-                              width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                <select style="padding:6px 8px;border-radius:6px;margin:0 50px;border:1px solid #4880FF;max-width:300px;
+                              overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
                 <option value="">-- Pilihan --</option>
                 @foreach($question->options as $opt)
                     <option>{{ $opt->option_text }}</option>
@@ -167,6 +173,60 @@
     @endforeach
 @endforeach
  </div>
+ {{-- TOMBOL EXPORT & IMPORT --}}
+<div style="margin: 30px 0 20px 20px; display: flex; gap: 12px;">
+    <a href="{{ route('questionnaire.export') }}" class="btn btn-success" 
+       style="padding: 10px 24px; border-radius: 8px; font-weight: 500;">
+        <i class="fas fa-file-excel" style="margin-right: 8px;"></i>Export to Excel
+    </a>
+    
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#importModal"
+            style="padding: 10px 24px; border-radius: 8px; font-weight: 500;">
+        <i class="fas fa-file-import" style="margin-right: 8px;"></i>Import from Excel
+    </button>
+</div>
+
+{{-- MODAL IMPORT --}}
+<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importModalLabel">Import Questionnaire</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ route('questionnaire.import.preview') }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Pilih File Excel</label>
+                        <input type="file" class="form-control" name="file" id="file" accept=".xlsx,.xls" required>
+                        <div class="form-text">
+                            Format file harus sesuai dengan template export. Hanya pertanyaan baru yang akan ditambahkan.
+                        </div>
+                    </div>
+                    
+                    <div style="background: #F0F7FF; padding: 12px; border-radius: 6px; margin-top: 16px;">
+                        <h6 style="font-size: 13px; color: #4880FF; margin-bottom: 8px;">
+                            <i class="fas fa-info-circle" style="margin-right: 6px;"></i>Catatan Import:
+                        </h6>
+                        <ul style="font-size: 12px; color: #595959; margin: 0; padding-left: 16px;">
+                            <li>Hanya dapat menambahkan pertanyaan ke kategori yang sudah ada</li>
+                            <li>Tidak dapat membuat kategori baru melalui import</li>
+                            <li>Format harus sesuai dengan template export</li>
+                            <li>Data akan divalidasi terlebih dahulu sebelum diimport</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-eye" style="margin-right: 6px;"></i>Preview Import
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 </div>
 
 
@@ -274,6 +334,39 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
+<style>
+    .btn-success {
+    background: #52C41A;
+    border: 1px solid #52C41A;
+    color: white;
+}
 
+.btn-success:hover {
+    background: #389E0D;
+    border-color: #389E0D;
+}
+
+.btn-primary {
+    background: #4880FF;
+    border: 1px solid #4880FF;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #2F6DFF;
+    border-color: #2F6DFF;
+}
+
+.btn-secondary {
+    background: #8C8C8C;
+    border: 1px solid #8C8C8C;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #737373;
+    border-color: #737373;
+}
+</style>
 
 @endsection

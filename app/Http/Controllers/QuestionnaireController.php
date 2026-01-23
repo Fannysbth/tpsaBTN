@@ -9,9 +9,75 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Exports\QuestionnaireExport;
+use App\Imports\QuestionnaireImport;
+use Maatwebsite\Excel\Facades\Excel;
+
+
 
 class QuestionnaireController extends Controller
 {
+    public function export()
+{
+    return Excel::download(new QuestionnaireExport, 'questionnaire.xlsx');
+}
+
+public function importPreview(Request $request)
+{
+    $request->validate([
+        'file' => 'required|mimes:xlsx,xls'
+    ]);
+
+    try {
+        $import = new QuestionnaireImport;
+        Excel::import($import, $request->file('file'));
+        
+        return view('questionnaire.import-preview', [
+            'importData' => $import->importData,
+            'errors' => $import->errors,
+            'totalQuestions' => count($import->importData)
+        ]);
+    } catch (\Exception $e) {
+        return redirect()->back()->with('error', 'Error reading file: ' . $e->getMessage());
+    }
+}
+
+public function import(Request $request)
+{
+    $validated = $request->validate([
+        'questions' => 'required|array',
+        'questions.*.category_id' => 'required|exists:categories,id',
+        'questions.*.question_text' => 'required|string',
+        'questions.*.sub' => 'nullable|string',
+        'questions.*.clue' => 'nullable|string',
+        'questions.*.indicator' => 'nullable|array',
+        'questions.*.question_type' => 'required|in:isian,pilihan',
+    ]);
+
+    $importedCount = 0;
+
+    foreach ($request->questions as $questionData) {
+        // Skip jika bukan new (tidak ada is_new atau false)
+        if (!isset($questionData['is_new']) || !$questionData['is_new']) {
+            continue;
+        }
+
+        $question = Question::create([
+            'category_id' => $questionData['category_id'],
+            'question_text' => $questionData['question_text'],
+            'sub' => $questionData['sub'] ?? null,
+            'clue' => $questionData['clue'] ?? null,
+            'indicator' => json_encode($questionData['indicator'] ?? []),
+            'question_type' => $questionData['question_type'] ?? 'isian',
+        ]);
+
+        $importedCount++;
+    }
+
+    return redirect()->route('questionnaire.index')
+        ->with('success', "Berhasil mengimport {$importedCount} pertanyaan baru");
+}
+
     public function index()
 {
     $categories = Category::with(['questions' => function ($query) {
@@ -75,7 +141,6 @@ if ($text === '') {
 
                 // Update question data
                 $question->question_text = $text;
-
                 $question->question_type = $data['question_type'] ?? 'pilihan';
                 $question->category_id = $data['category_id'] ?? null;
                 $question->indicator = json_encode($data['indicator'] ?? []);

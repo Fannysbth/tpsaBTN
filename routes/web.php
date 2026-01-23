@@ -47,3 +47,7 @@ Route::prefix('assessment')->group(function () {
     Route::delete('/{assessment}', [AssessmentController::class, 'destroy'])->name('assessment.destroy');
 
 });
+
+Route::get('/questionnaire/export', [QuestionnaireController::class, 'export'])->name('questionnaire.export');
+Route::post('/questionnaire/import/preview', [QuestionnaireController::class, 'importPreview'])->name('questionnaire.import.preview');
+Route::post('/questionnaire/import', [QuestionnaireController::class, 'import'])->name('questionnaire.import');

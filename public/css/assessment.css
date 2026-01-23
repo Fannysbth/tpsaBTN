@@ -299,6 +299,47 @@
 	margin-left: 31px;
 	margin-right: 31px;
 }
+
+.category-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: #F0F7FF;
+    border: 1px solid #4880FF;
+    border-radius: 999px; /* pill */
+    font-size: 14px;
+    font-weight: 500;
+    color: #202224;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.category-chip:hover {
+    background: #E8F0FF;
+}
+
+.category-name {
+    white-space: nowrap;
+}
+
+.delete-category-btn {
+    width: 18px;
+    height: 18px;
+    border: none;
+    background: transparent;
+    color: #FF4D4F;
+    font-size: 25px;
+    line-height: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+
+
 .row-view6 {
 	align-self: stretch;
 	display: flex;

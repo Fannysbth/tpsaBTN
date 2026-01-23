@@ -125,10 +125,16 @@
             {{-- QUESTION CARDS --}}
             @foreach($categories as $category)
                 @foreach($category->questions as $question)
+                @php
+    $indicatorArray = is_array($question->indicator)
+        ? $question->indicator
+        : json_decode($question->indicator ?? '[]', true);
+@endphp
+
                     <div class="question-card existing-card" 
                          data-question-id="{{ $question->id }}" 
                          data-category="{{ $question->category_id }}" 
-                         data-indicator="{{ implode(',', json_decode($question->indicator ?? '[]', true)) }}"
+                         data-indicator="{{ implode(',', $indicatorArray) }}"
                          style="margin-bottom: 16px; border: 1px solid #E0E0E0; border-radius: 12px; background: #FFFFFF; 
                                 box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: all 0.3s ease; cursor: pointer;">
                         
@@ -280,7 +286,7 @@
                                             @foreach(['high' => 'High', 'medium' => 'Medium', 'low' => 'Low'] as $indValue => $indLabel)
                                                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                                                     @php
-                                                        $indicators = json_decode($question->indicator, true) ?? [];
+                                                        $indicators = $indicatorArray;
                                                     @endphp
                                                     <input type="checkbox"
                                                            name="questions[{{ $question->id }}][indicator][]"
