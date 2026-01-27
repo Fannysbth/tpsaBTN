@@ -12,194 +12,216 @@ use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\Conditional;
 use PhpOffice\PhpSpreadsheet\Style\Color;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
-class AssessmentExport implements FromCollection, WithHeadings, WithStyles, WithColumnWidths, WithEvents
+class AssessmentExport implements
+    FromCollection,
+    WithHeadings,
+    WithStyles,
+    WithColumnWidths,
+    WithEvents
 {
+    protected Assessment $assessment;
 
     protected array $categoryRowMap = [];
-    protected array $questionsMap = [];
-    protected $assessment;
+    protected array $questionsMap   = [];
+    protected int $categoryColumnCount = 0;
 
     public function __construct(Assessment $assessment)
     {
-        $this->assessment = $assessment->load(['answers.question', 'answers.question.options']);
+        $this->assessment = $assessment->load([
+            'answers.question.category',
+            'answers.question.options'
+        ]);
     }
+
+    /* =======================
+     * Helpers
+     * ======================= */
+
+    private function emptyCols(int $count): array
+    {
+        return array_fill(0, $count, '');
+    }
+
+    // kolom matrix = 2 kolom awal + (category * 3)
+    private function matrixColCount(): int
+    {
+        return 2 + $this->categoryColumnCount;
+    }
+
+    private function lastMatrixColumnLetter(): string
+    {
+        return Coordinate::stringFromColumnIndex($this->matrixColCount());
+    }
+
+    /* =======================
+     * Collection (DATA MATRIX)
+     * ======================= */
 
     public function collection()
-{
-    $data = [];
-    $this->categoryRowMap = [];
-    $this->questionsMap = [];
-    $row = 2;
-    
-    $assessment = $this->assessment;
-    
-    // Group jawaban berdasarkan kategori
-    $grouped = $assessment->answers
-        ->load('question.category', 'question.options')
-        ->groupBy(fn($a) => $a->question->category_id);
-    
-    foreach ($grouped as $categoryId => $answers) {
-        $category = $answers->first()->question->category;
-        $indicator = $assessment->category_scores[$categoryId]['indicator'] ?? null;
-        $categoryScore = $assessment->category_scores[$categoryId]['score'] ?? 0;
-        
-        // Baris kategori dengan score
-        $data[] = [
-            'Kategori: ' . $category->name . ' (Indikator: ' . strtoupper($indicator) . ')',
-            '', 
-            ''
-        ];
-        
-        $this->categoryRowMap[$categoryId] = $row;
-        $row++;
-        
-        foreach ($answers as $answer) {
-            $question = $answer->question;
-            
-            // Pastikan sesuai indikator
-            $questionIndicators = $question->indicator;
-            
-            if (is_string($questionIndicators)) {
-                $decoded = json_decode($questionIndicators, true);
-                if (json_last_error() === JSON_ERROR_NONE) {
-                    $questionIndicators = $decoded;
-                } else {
-                    $questionIndicators = array_map('trim', explode(',', $questionIndicators));
-                }
+    {
+        // 1 category = 3 kolom (High, Medium, Low)
+        $this->categoryColumnCount = Category::count() * 3;
+
+        $data = [];
+        $row  = 2;
+
+        $grouped = $this->assessment->answers
+            ->groupBy(fn ($a) => $a->question->category_id);
+
+        foreach ($grouped as $categoryId => $answers) {
+            $category  = $answers->first()->question->category;
+            $indicator = $this->assessment->category_scores[$categoryId]['indicator'] ?? null;
+
+            // ===== ROW JUDUL CATEGORY =====
+            $data[] = array_merge(
+                ['Kategori: ' . $category->name . ' (Indikator: ' . strtoupper((string) $indicator) . ')'],
+                $this->emptyCols($this->matrixColCount() - 1)
+            );
+
+            $this->categoryRowMap[$categoryId] = $row;
+            $row++;
+
+            // ===== ROW PERTANYAAN =====
+            foreach ($answers as $answer) {
+                $question = $answer->question;
+
+                $data[] = array_merge(
+                    [
+                        $question->question_text,
+                        $answer->answer_text ?? ($question->clue ?? '-- Pilih Jawaban --'),
+                    ],
+                    $this->emptyCols($this->categoryColumnCount)
+                );
+
+                $this->questionsMap[$row] = $question;
+                $row++;
             }
-            
-            $questionIndicators = $questionIndicators ?? [];
-            
-            if ($indicator && !in_array($indicator, $questionIndicators)) {
-                continue;
-            }
-            
-            $data[] = [
-                $question->question_text,
-                $answer->answer_text ?? ($question->clue ?? '-- Pilih Jawaban --'),
-                $question->has_attachment ? ($answer->attachment_info ?? $question->attachment_text ?? 'Perlu Upload') : '-'
-            ];
-            
-            $this->questionsMap[$row] = $question;
+
+            // spacer
+            $data[] = $this->emptyCols($this->matrixColCount());
             $row++;
         }
-        
-        // Tambah baris kosong antar kategori
-        $data[] = ['', '', ''];
-        $row++;
-    }
-    
-    
-    return collect($data);
-}
 
-
-public function registerEvents(): array
-{
-    return [
-        AfterSheet::class => function(AfterSheet $event){
-            $sheet = $event->sheet->getDelegate();
-            $lastRow = $sheet->getHighestRow();
-
-            // 1. Merge kategori
-            
-foreach ($this->categoryRowMap as $row) {
-    $sheet->mergeCells("A{$row}:C{$row}"); // sesuaikan jumlah kolom
-    $sheet->getStyle("A{$row}")->getFont()->setBold(true);
-    $sheet->getStyle("A{$row}")->getAlignment()->setHorizontal('center');
-
-    // Tambahkan border untuk merge cell
-    $sheet->getStyle("A{$row}:C{$row}")->getBorders()->getAllBorders()
-        ->setBorderStyle(Border::BORDER_THIN);
-}
-
-$lastRow = $sheet->getHighestRow(); // pastikan lastRow terbaru setelah tabel
-$statementStartRow = $lastRow + 2; // 1 baris kosong setelah tabel
-
-
-$statement = [
-    "Saya yang bertanda-tangan di bawah ini menyatakan bahwa data yang saya isi pada formulir ini adalah benar, dan Apabila di kemudian hari ditemukan kecurangan/pemalsuan/penipuan pada data, dokumen atau informasi tersebut, maka saya bersedia diberikan sanksi sesuai dengan perundangan/peraturan yang berlaku.",
-    "<Lokasi, Tanggal>",
-    "",
-    "TTD, materai dan CAP perusahaan",
-    "",
-    "(…………………………………….)",
-    "<Nama Perusahaan>"
-];
-
-foreach ($statement as $i => $line) {
-    $rowNum = $statementStartRow + $i;
-    $sheet->setCellValue("A{$rowNum}", $line);
-    // Merge agar teks melebar sesuai kolom
-    $sheet->mergeCells("A{$rowNum}:C{$rowNum}");
-    $sheet->getStyle("A{$rowNum}")->getAlignment()->setHorizontal('left');
-    $sheet->getStyle("A{$rowNum}")->getAlignment()->setWrapText(true);
-
-    $sheet->getStyle("A{$rowNum}")->getFont()->setBold(false);
-    // Tidak pakai border
-}
-
-
-
-            // 2. Iterasi pertanyaan untuk dropdown & conditional font
-            for ($row = 2; $row <= $lastRow; $row++) {
-    $cell = "B{$row}";
-    $value = $sheet->getCell($cell)->getValue();
-
-    // Ambil pertanyaan dari map
-    $question = $this->questionsMap[$row] ?? null;
-
-    // Conditional font color
-    if (!$question || $value == "" || $value == "-- Pilih Jawaban --" || $value == ($question->clue ?? '')) {
-        $sheet->getStyle($cell)->getFont()->getColor()->setARGB('FF999999');
-    } else {
-        $sheet->getStyle($cell)->getFont()->getColor()->setARGB(Color::COLOR_BLACK);
+        return collect($data);
     }
 
-    // Dropdown untuk pertanyaan pilihan
-    if ($question && $question->question_type === 'pilihan') {
-        $options = $question->options->pluck('option_text')->toArray();
-        array_unshift($options, '-- Pilih Jawaban --');
-        $formula = '"' . implode(',', $options) . '"';
-
-        $validation = $sheet->getCell($cell)->getDataValidation();
-        $validation->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST);
-        $validation->setAllowBlank(true);
-        $validation->setShowDropDown(true);
-        $validation->setFormula1($formula);
-    }
-}
-
-
-
-            $event->sheet->freezePane('A2');
-        }
-    ];
-}
-
-
+    /* =======================
+     * Headings (HANYA MATRIX)
+     * ======================= */
 
     public function headings(): array
     {
-        return ['PERTANYAAN','JAWABAN','ATTACHMENT'];
+        return array_merge(
+            ['PERTANYAAN', 'JAWABAN'],
+            $this->emptyCols($this->categoryColumnCount)
+        );
     }
+
+    /* =======================
+     * Events
+     * ======================= */
+
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
+
+                $sheet      = $event->sheet->getDelegate();
+                $lastRow    = $sheet->getHighestRow();
+                $lastMatrix = $this->lastMatrixColumnLetter();
+
+                /* =======================
+                 * ATTACHMENT (KOLOM TERAKHIR)
+                 * ======================= */
+
+                $attachmentColIndex = Coordinate::columnIndexFromString($lastMatrix) + 1;
+                $attachmentCol      = Coordinate::stringFromColumnIndex($attachmentColIndex);
+
+                // header attachment
+                $sheet->setCellValue("{$attachmentCol}1", 'ATTACHMENT');
+
+                foreach ($this->questionsMap as $row => $question) {
+                    $answer = $this->assessment->answers
+                        ->firstWhere('question_id', $question->id);
+
+                    $sheet->setCellValue(
+                        "{$attachmentCol}{$row}",
+                        $question->has_attachment
+                            ? ($answer->attachment_info ?? '-')
+                            : '-'
+                    );
+                }
+
+                /* =======================
+                 * MERGE ROW CATEGORY
+                 * ======================= */
+
+                foreach ($this->categoryRowMap as $row) {
+                    $sheet->mergeCells("A{$row}:{$lastMatrix}{$row}");
+                    $sheet->getStyle("A{$row}")->getFont()->setBold(true);
+                }
+
+                /* =======================
+                 * DROPDOWN & FONT
+                 * ======================= */
+
+                for ($r = 2; $r <= $lastRow; $r++) {
+                    $cell     = "B{$r}";
+                    $question = $this->questionsMap[$r] ?? null;
+
+                    if (!$question || $sheet->getCell($cell)->getValue() === '') {
+                        $sheet->getStyle($cell)
+                            ->getFont()
+                            ->getColor()
+                            ->setARGB('FF999999');
+                    } else {
+                        $sheet->getStyle($cell)
+                            ->getFont()
+                            ->getColor()
+                            ->setARGB(Color::COLOR_BLACK);
+                    }
+
+                    if ($question && $question->question_type === 'pilihan') {
+                        $options = $question->options->pluck('option_text')->toArray();
+                        array_unshift($options, '-- Pilih Jawaban --');
+
+                        $validation = $sheet->getCell($cell)->getDataValidation();
+                        $validation->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST);
+                        $validation->setAllowBlank(true);
+                        $validation->setShowDropDown(true);
+                        $validation->setFormula1('"' . implode(',', $options) . '"');
+                    }
+                }
+
+                $sheet->freezePane('A2');
+            }
+        ];
+    }
+
+    /* =======================
+     * Styles & Width
+     * ======================= */
 
     public function styles(Worksheet $sheet)
     {
-        $sheet->getStyle('A1:C1')->getFont()->setBold(true);
-        $lastRow = $sheet->getHighestRow();
+        $lastRow    = $sheet->getHighestRow();
+        $lastMatrix = $this->lastMatrixColumnLetter();
 
-        $sheet->getStyle("A1:C{$lastRow}")->getBorders()->getAllBorders()
+        $sheet->getStyle("A1:{$lastMatrix}1")->getFont()->setBold(true);
+        $sheet->getStyle("A1:{$lastMatrix}{$lastRow}")
+            ->getBorders()
+            ->getAllBorders()
             ->setBorderStyle(Border::BORDER_THIN);
     }
 
     public function columnWidths(): array
     {
-        return ['A'=>50,'B'=>40,'C'=>15,'D'=>20];
+        return [
+            'A' => 50,
+            'B' => 40,
+        ];
     }
-
-    
 }

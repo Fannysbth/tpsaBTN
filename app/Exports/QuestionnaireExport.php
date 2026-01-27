@@ -12,17 +12,17 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
-use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class QuestionnaireExport implements FromCollection, WithHeadings, WithStyles, WithEvents
 {
     protected array $indicatorGroups = [];
     protected int $indicatorColumnCount = 0;
+    protected array $mergeMap = [];
 
     protected function lastIndicatorColumn(): string
     {
-        return Coordinate::stringFromColumnIndex(5 + $this->indicatorColumnCount);
+        return Coordinate::stringFromColumnIndex(6 + $this->indicatorColumnCount);
     }
 
     public function __construct()
@@ -57,32 +57,50 @@ class QuestionnaireExport implements FromCollection, WithHeadings, WithStyles, W
         $rows = collect();
         $categories = Category::with('questions.options')->get();
 
+        $excelRow = 3; // data mulai setelah header 2 baris
+
         foreach ($categories as $category) {
 
-            // ===== HEADER CATEGORY =====
+            // ===== CATEGORY HEADER =====
             $rows->push(array_merge(
-                [$category->name, 'HEADER', '', '', ''],
+                [$category->name, 'HEADER', '', '', '', ''],
                 array_fill(0, $this->indicatorColumnCount, '')
             ));
+            $excelRow++;
 
             $no = 1;
+
             foreach ($category->questions as $question) {
 
                 $indicator = is_string($question->indicator)
                     ? json_decode($question->indicator, true) ?? []
                     : [];
 
-                $keterangan = in_array($question->question_type, ['dropdown', 'pilihan'])
-                    ? ''
-                    : ($question->clue ?? '');
+                $options = $question->question_type === 'pilihan'
+                    ? $question->options
+                    : collect();
 
-                $row = [
-                    $question->sub,
-                    $no++,
-                    $question->question_text,
-                    ':',
-                    $keterangan,
-                ];
+                $rowSpan = max(1, $options->count());
+                $startRow = $excelRow;
+
+                // ===== BARIS PERTAMA (PERTANYAAN + PILIHAN PERTAMA) =====
+                $firstOption = $options->first();
+
+                $isPilihan = $question->question_type === 'pilihan';
+
+$baseRow = [
+    $question->sub,
+    $no++,
+    $question->question_text,
+    ':',
+    $isPilihan
+        ? ($firstOption->option_text ?? '')
+        : ($question->clue ?? '-'),
+    $isPilihan
+        ? ($firstOption->score ?? '')
+        : '-', // 👈 SCORE CLUE = STRIP
+];
+
 
                 foreach ($this->indicatorGroups as $group) {
                     foreach ($group['levels'] as $level) {
@@ -90,19 +108,39 @@ class QuestionnaireExport implements FromCollection, WithHeadings, WithStyles, W
                             $group['key'] === 'umum' &&
                             $category->name === 'Informasi Umum'
                         ) {
-                            $row[] = 'V';
+                            $baseRow[] = 'V';
                         } elseif (
                             $group['key'] === $category->id &&
                             in_array(strtolower($level), $indicator)
                         ) {
-                            $row[] = 'V';
+                            $baseRow[] = 'V';
                         } else {
-                            $row[] = '';
+                            $baseRow[] = '';
                         }
                     }
                 }
 
-                $rows->push($row);
+                $rows->push($baseRow);
+                $excelRow++;
+
+                // ===== BARIS PILIHAN SELANJUTNYA =====
+                if ($options->count() > 1) {
+                    foreach ($options->slice(1) as $opt) {
+                        $rows->push(array_merge(
+                            ['', '', '', '', $opt->option_text, (string) $opt->score],
+                            array_fill(0, $this->indicatorColumnCount, '')
+                        ));
+                        $excelRow++;
+                    }
+                }
+
+                // simpan untuk merge
+                $this->mergeMap[] = [
+    'start' => $startRow,
+    'end' => $startRow + $rowSpan - 1,
+    'hasScore' => $isPilihan
+];
+
             }
         }
 
@@ -111,8 +149,8 @@ class QuestionnaireExport implements FromCollection, WithHeadings, WithStyles, W
 
     public function headings(): array
     {
-        $row1 = ['Sub','No','Deskripsi',':','Keterangan'];
-        $row2 = ['','','','',''];
+        $row1 = ['Sub', 'No', 'Deskripsi', ':', 'Pilihan', 'Score'];
+        $row2 = ['', '', '', '', '', ''];
 
         foreach ($this->indicatorGroups as $group) {
             foreach ($group['levels'] as $level) {
@@ -126,214 +164,90 @@ class QuestionnaireExport implements FromCollection, WithHeadings, WithStyles, W
 
     public function styles(Worksheet $sheet)
     {
-        
         $sheet->getColumnDimension('A')->setWidth(25);
         $sheet->getColumnDimension('B')->setWidth(6);
         $sheet->getColumnDimension('C')->setWidth(45);
         $sheet->getColumnDimension('D')->setWidth(3);
         $sheet->getColumnDimension('E')->setWidth(40);
+        $sheet->getColumnDimension('F')->setWidth(10);
 
-        $sheet->getStyle('A1:Z2')->getFont()->setBold(true);
-        $sheet->getStyle('A1:Z2')->getAlignment()
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-            ->setVertical(Alignment::VERTICAL_CENTER);
-
-        $sheet->getStyle('F:Z')->getAlignment()
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER);
-
-        $sheet->getStyle('C')->getAlignment()->setWrapText(true);
-        $sheet->getStyle('E')->getAlignment()->setWrapText(true);
+        $sheet->getStyle('C:E')->getAlignment()->setWrapText(true);
+        $sheet->getStyle('F')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         return [];
     }
 
     public function registerEvents(): array
-{
-    return [
-        AfterSheet::class => function (AfterSheet $event) {
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
 
-            $sheet = $event->sheet->getDelegate();
-            $spreadsheet = $event->sheet->getParent();
+                $sheet = $event->sheet->getDelegate();
+                $lastRow = $sheet->getHighestRow();
+                $lastColumn = $this->lastIndicatorColumn();
 
-            $lastRow = $sheet->getHighestRow();
-            $lastColumn = $this->lastIndicatorColumn();
+                // ===== HEADER STYLE =====
+                $sheet->getStyle("A1:{$lastColumn}2")->applyFromArray([
+                    'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+                    'fill' => [
+                        'fillType' => Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => '0070C0'],
+                    ],
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_CENTER,
+                        'vertical' => Alignment::VERTICAL_CENTER,
+                    ],
+                ]);
 
-            /*
-            |------------------------------------------------------------------
-            | 1. HEADER TABLE (ROW 1 & 2)
-            |------------------------------------------------------------------
-            */
-            $sheet->getStyle("A1:{$lastColumn}2")->applyFromArray([
-                'font' => [
-                    'bold' => true,
-                    'color' => ['rgb' => 'FFFFFF'],
-                ],
-                'fill' => [
-                    'fillType' => Fill::FILL_SOLID,
-                    'startColor' => ['rgb' => '0070C0'],
-                ],
-                'alignment' => [
-                    'horizontal' => Alignment::HORIZONTAL_CENTER,
-                    'vertical' => Alignment::VERTICAL_CENTER,
-                ],
-            ]);
-
-            /*
-|------------------------------------------------------------------
-| MERGE HEADER FIXED (SUB, NO, DESKRIPSI, :, KETERANGAN)
-|------------------------------------------------------------------
-*/
-$fixedHeaderCols = ['A', 'B', 'C', 'D', 'E'];
-
-foreach ($fixedHeaderCols as $col) {
-    $sheet->mergeCells("{$col}1:{$col}2");
-
-    $sheet->getStyle("{$col}1")->getAlignment()
-        ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-        ->setVertical(Alignment::VERTICAL_CENTER);
-}
-
-
-            /*
-|------------------------------------------------------------------
-| FIX: MERGE HEADER INDICATOR (ROW 1)
-|------------------------------------------------------------------
-*/
-$startColIndex = 6; // kolom F (setelah Keterangan)
-
-foreach ($this->indicatorGroups as $group) {
-
-    $count = count($group['levels']);
-    if ($count <= 1) {
-        $startColIndex += $count;
-        continue;
-    }
-
-    $startCol = Coordinate::stringFromColumnIndex($startColIndex);
-    $endCol   = Coordinate::stringFromColumnIndex($startColIndex + $count - 1);
-
-    // merge nama category di row 1
-    $sheet->mergeCells("{$startCol}1:{$endCol}1");
-
-    // pastikan text di tengah
-    $sheet->getStyle("{$startCol}1")->getAlignment()
-        ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-        ->setVertical(Alignment::VERTICAL_CENTER);
-
-    $startColIndex += $count;
-}
-
-
-            /*
-            |------------------------------------------------------------------
-            | 2. OPTION SHEET
-            |------------------------------------------------------------------
-            */
-            $optionSheet = $spreadsheet->createSheet();
-            $optionSheet->setTitle('options');
-
-            $categories = Category::with('questions.options')->get();
-
-            $optionRanges = [];
-            $optRow = 1;
-
-            foreach ($categories as $category) {
-                foreach ($category->questions as $question) {
-
-                    if (!in_array($question->question_type, ['dropdown', 'pilihan'])) {
-                        continue;
-                    }
-
-                    $options = $question->options->pluck('option_text')->toArray();
-                    if (empty($options)) continue;
-
-                    $start = $optRow;
-                    foreach ($options as $opt) {
-                        $optionSheet->setCellValue("A{$optRow}", $opt);
-                        $optRow++;
-                    }
-
-                    $optionRanges[$question->id] =
-                        "options!\$A\${$start}:\$A\$" . ($optRow - 1);
+                // merge header tetap
+                foreach (['A','B','C','D','E','F'] as $col) {
+                    $sheet->mergeCells("{$col}1:{$col}2");
                 }
-            }
 
-            /*
-            |------------------------------------------------------------------
-            | 3. DROPDOWN + DEFAULT VALUE (PER BARIS)
-            |------------------------------------------------------------------
-            */
-            $row = 3;
+                // merge header indikator
+                $startColIndex = 7;
+                foreach ($this->indicatorGroups as $group) {
+                    $count = count($group['levels']);
+                    if ($count > 1) {
+                        $start = Coordinate::stringFromColumnIndex($startColIndex);
+                        $end = Coordinate::stringFromColumnIndex($startColIndex + $count - 1);
+                        $sheet->mergeCells("{$start}1:{$end}1");
+                    }
+                    $startColIndex += $count;
+                }
 
-            foreach ($categories as $category) {
+                // ===== CATEGORY ROW STYLE =====
+                for ($r = 3; $r <= $lastRow; $r++) {
+                    if ($sheet->getCell("B{$r}")->getValue() === 'HEADER') {
+                        $sheet->mergeCells("A{$r}:{$lastColumn}{$r}");
+                        $sheet->getStyle("A{$r}:{$lastColumn}{$r}")->applyFromArray([
+                            'font' => ['bold' => true],
+                            'fill' => [
+                                'fillType' => Fill::FILL_SOLID,
+                                'startColor' => ['rgb' => 'CAEDFB'],
+                            ],
+                        ]);
+                    }
+                }
 
-                // skip header category
-                $row++;
-
-                foreach ($category->questions as $question) {
-
-                    if (
-                        in_array($question->question_type, ['dropdown', 'pilihan']) &&
-                        isset($optionRanges[$question->id])
-                    ) {
-                        $cell = $sheet->getCell("E{$row}");
-
-                        // default value = option pertama
-                        $firstOption = $question->options->first()->option_text ?? '';
-                        if ($cell->getValue() === null || $cell->getValue() === '') {
-                            $cell->setValue($firstOption);
+                // ===== MERGE PERTANYAAN & CLUE =====
+                foreach ($this->mergeMap as $m) {
+                    if ($m['start'] < $m['end']) {
+                        foreach (['A','B','C','D'] as $col) {
+                            $sheet->mergeCells("{$col}{$m['start']}:{$col}{$m['end']}");
                         }
-
-                        $validation = $cell->getDataValidation();
-                        $validation->setType(DataValidation::TYPE_LIST);
-                        $validation->setAllowBlank(false);
-                        $validation->setShowDropDown(true);
-                        $validation->setFormula1('=' . $optionRanges[$question->id]);
+                        if (!$m['hasScore']) {
+                            $sheet->mergeCells("E{$m['start']}:F{$m['end']}");
+                        }
                     }
-
-                    $row++;
                 }
+
+                // ===== BORDER =====
+                $sheet->getStyle("A1:{$lastColumn}{$lastRow}")
+                    ->getBorders()
+                    ->getAllBorders()
+                    ->setBorderStyle(Border::BORDER_THIN);
             }
-
-            $optionSheet->setSheetState(Worksheet::SHEETSTATE_HIDDEN);
-
-            /*
-            |------------------------------------------------------------------
-            | 4. CATEGORY ROW (B = HEADER)
-            |------------------------------------------------------------------
-            */
-            for ($r = 3; $r <= $lastRow; $r++) {
-                if (
-                    $sheet->getCell("A{$r}")->getValue() &&
-                    $sheet->getCell("B{$r}")->getValue() === 'HEADER'
-                ) {
-                    $sheet->mergeCells("A{$r}:{$lastColumn}{$r}");
-
-                    $sheet->getStyle("A{$r}:{$lastColumn}{$r}")->applyFromArray([
-                        'font' => [
-                            'bold' => true,
-                        ],
-                        'fill' => [
-                            'fillType' => Fill::FILL_SOLID,
-                            'startColor' => ['rgb' => 'CAEDFB'],
-                        ],
-                        'alignment' => [
-                            'vertical' => Alignment::VERTICAL_CENTER,
-                        ],
-                    ]);
-                }
-            }
-
-            /*
-            |------------------------------------------------------------------
-            | 5. BORDER
-            |------------------------------------------------------------------
-            */
-            $sheet->getStyle("A1:{$lastColumn}{$lastRow}")
-                ->getBorders()
-                ->getAllBorders()
-                ->setBorderStyle(Border::BORDER_THIN);
-        }
-    ];
-}
+        ];
+    }
 }

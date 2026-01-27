@@ -5,6 +5,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\QuestionnaireController;
 use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\QuestionnaireImportController;
 
 Route::get('/', [DashboardController::class, 'index'])->name('dashboard.index');
 // Route untuk edit assessment
@@ -49,5 +50,5 @@ Route::prefix('assessment')->group(function () {
 });
 
 Route::get('/questionnaire/export', [QuestionnaireController::class, 'export'])->name('questionnaire.export');
-Route::post('/questionnaire/import/preview', [QuestionnaireController::class, 'importPreview'])->name('questionnaire.import.preview');
-Route::post('/questionnaire/import', [QuestionnaireController::class, 'import'])->name('questionnaire.import');
+Route::post('/questionnaire/import/preview', [QuestionnaireImportController::class, 'preview'])->name('questionnaire.import.preview');
+Route::post('/questionnaire/import', [QuestionnaireImportController::class, 'import'])->name('questionnaire.import');

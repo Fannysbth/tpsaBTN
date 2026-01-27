@@ -29,53 +29,81 @@ public function importPreview(Request $request)
     ]);
 
     try {
-        $import = new QuestionnaireImport;
+        $import = new QuestionnaireImport();
         Excel::import($import, $request->file('file'));
-        
-        return view('questionnaire.import-preview', [
-            'importData' => $import->importData,
-            'errors' => $import->errors,
-            'totalQuestions' => count($import->importData)
+
+        return view('questionnaire.preview-import', [
+            'importData'      => $import->importData ?? [],
+            'importErrors'    => $import->errors ?? [],   // 🔥 GANTI
+            'totalQuestions' => count($import->importData ?? []),
+            'categories'     => Category::all(),          // 🔥 TAMBAH
         ]);
+
     } catch (\Exception $e) {
-        return redirect()->back()->with('error', 'Error reading file: ' . $e->getMessage());
+        return redirect()->back()
+            ->with('error', 'Error reading file: ' . $e->getMessage());
     }
 }
-
 public function import(Request $request)
 {
     $validated = $request->validate([
         'questions' => 'required|array',
         'questions.*.category_id' => 'required|exists:categories,id',
         'questions.*.question_text' => 'required|string',
-        'questions.*.sub' => 'nullable|string',
-        'questions.*.clue' => 'nullable|string',
-        'questions.*.indicator' => 'nullable|array',
         'questions.*.question_type' => 'required|in:isian,pilihan',
     ]);
 
     $importedCount = 0;
 
-    foreach ($request->questions as $questionData) {
-        // Skip jika bukan new (tidak ada is_new atau false)
-        if (!isset($questionData['is_new']) || !$questionData['is_new']) {
-            continue;
+    DB::beginTransaction();
+    try {
+
+        foreach ($request->questions as $q) {
+
+            // skip kalau toggle dimatikan
+            if (!isset($q['import'])) {
+                continue;
+            }
+
+            $question = Question::create([
+                'category_id'   => $q['category_id'],
+                'question_text' => $q['question_text'],
+                'sub'           => $q['sub'] ?? null,
+                'clue'          => $q['clue'] ?? null,
+                'indicator'     => json_encode($q['indicator'] ?? []),
+                'question_type' => $q['question_type'],
+                'order'         => 0,
+            ]);
+
+            // 🔥 SIMPAN OPTIONS
+            if ($q['question_type'] === 'pilihan' && !empty($q['options'])) {
+                foreach ($q['options'] as $opt) {
+                    if (!empty($opt['text'])) {
+                        QuestionOption::create([
+                            'question_id' => $question->id,
+                            'option_text'=> $opt['text'],
+                            'score'      => $opt['score'] ?? 0,
+                        ]);
+                    }
+                }
+            }
+
+            $importedCount++;
         }
 
-        $question = Question::create([
-            'category_id' => $questionData['category_id'],
-            'question_text' => $questionData['question_text'],
-            'sub' => $questionData['sub'] ?? null,
-            'clue' => $questionData['clue'] ?? null,
-            'indicator' => json_encode($questionData['indicator'] ?? []),
-            'question_type' => $questionData['question_type'] ?? 'isian',
-        ]);
+        DB::commit();
 
-        $importedCount++;
+        return redirect()
+            ->route('questionnaire.index')
+            ->with('success', "Berhasil mengimport {$importedCount} pertanyaan");
+
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        Log::error($e);
+
+        return back()
+            ->with('error', 'Gagal import data');
     }
-
-    return redirect()->route('questionnaire.index')
-        ->with('success', "Berhasil mengimport {$importedCount} pertanyaan baru");
 }
 
     public function index()
