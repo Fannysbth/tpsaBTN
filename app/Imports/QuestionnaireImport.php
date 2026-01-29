@@ -15,36 +15,27 @@ class QuestionnaireImport implements ToCollection
     public function collection(Collection $rows)
     {
         if ($rows->count() < 3) {
-            $this->errors[] = 'Format Excel tidak valid: baris data tidak ditemukan.';
+            $this->errors[] = 'Format Excel tidak valid.';
             return;
         }
 
         $currentCategory = null;
-        $excelRow = 0;
-        $questionCount = 0;
-
-        $lastQuestionText = null;
         $lastQuestionIndex = null;
+        $lastQuestionText = null;
 
         /**
          * ==============================
-         * DETEKSI KOLOM INDIKATOR (DINAMIS)
+         * DETEKSI KOLOM INDIKATOR
          * ==============================
-         * Baris header ke-2 berisi:
-         * High | Medium | Low | High | Medium | Low | ...
          */
         $indicatorColumnIndexes = [];
-        $headerIndicatorRow = $rows[1]; // baris ke-2
+        $headerRow = $rows[1]; // baris ke-2
 
-        foreach ($headerIndicatorRow as $colIndex => $val) {
+        foreach ($headerRow as $colIndex => $val) {
             $v = strtolower(trim((string) $val));
-            if (in_array($v, ['high', 'medium', 'low'])) {
+            if (in_array($v, ['high', 'medium', 'low', 'umum'])) {
                 $indicatorColumnIndexes[$colIndex] = $v;
             }
-        }
-
-        if (empty($indicatorColumnIndexes)) {
-            $this->errors[] = 'Kolom indikator (High/Medium/Low) tidak terdeteksi.';
         }
 
         /**
@@ -52,36 +43,39 @@ class QuestionnaireImport implements ToCollection
          * LOOP DATA
          * ==============================
          */
-        foreach ($rows as $row) {
-            $excelRow++;
+        foreach ($rows as $rowIndex => $row) {
 
-            // skip 2 header
-            if ($excelRow <= 2) {
-                continue;
-            }
+            // skip header
+            if ($rowIndex < 2) continue;
 
-            // mapping kolom tetap
+            $excelRow = $rowIndex + 1;
+            $lastColumnIndex = count($row) - 1;
+
             $sub        = trim((string) ($row[0] ?? '')); // A
             $no         = trim((string) ($row[1] ?? '')); // B
             $deskripsi  = trim((string) ($row[2] ?? '')); // C
             $pilihan    = trim((string) ($row[4] ?? '')); // E
-            $score      = trim((string) ($row[5] ?? '')); // F
+            $scoreRaw   = trim((string) ($row[5] ?? '')); // F
+            $attachment = trim((string) ($row[$lastColumnIndex] ?? ''));
 
-            // skip baris kosong total
+            $attachment = ($attachment === '' || $attachment === '-') ? null : $attachment;
+            $score = ($scoreRaw === '' || !is_numeric($scoreRaw)) ? null : (int) $scoreRaw;
+
+            // skip baris kosong
             if ($sub === '' && $no === '' && $deskripsi === '' && $pilihan === '') {
                 continue;
             }
 
             /**
              * ==============================
-             * DETEKSI CATEGORY HEADER
+             * CATEGORY HEADER
              * ==============================
              */
             if ($sub !== '' && $no === '' && $deskripsi === '') {
                 $category = Category::where('name', $sub)->first();
 
                 if (!$category) {
-                    $this->errors[] = "Baris {$excelRow}: Kategori '{$sub}' tidak ditemukan di database.";
+                    $this->errors[] = "Baris {$excelRow}: Category '{$sub}' tidak ditemukan.";
                     $currentCategory = null;
                     continue;
                 }
@@ -91,31 +85,27 @@ class QuestionnaireImport implements ToCollection
             }
 
             if (!$currentCategory) {
-                $this->errors[] = "Baris {$excelRow}: Pertanyaan ditemukan tanpa kategori.";
+                $this->errors[] = "Baris {$excelRow}: Pertanyaan tanpa category.";
                 continue;
             }
 
             /**
              * ==============================
-             * DETEKSI PERTANYAAN BARU
+             * PERTANYAAN BARU
              * ==============================
-             * Patokan UTAMA: kolom No angka
              */
-            if ($no !== '' && is_numeric(trim($no))) {
+            if ($no !== '' && is_numeric($no)) {
 
-                // simpan deskripsi pertama (karena merge)
-                if ($deskripsi !== '') {
-                    $lastQuestionText = $deskripsi;
-                }
-
-                if (!$lastQuestionText) {
-                    $this->errors[] = "Baris {$excelRow}: Deskripsi pertanyaan tidak ditemukan.";
+                if ($deskripsi === '') {
+                    $this->errors[] = "Baris {$excelRow}: Deskripsi pertanyaan kosong.";
                     continue;
                 }
 
+                $lastQuestionText = $deskripsi;
+
                 /**
                  * ==============================
-                 * DETEKSI INDIKATOR
+                 * INDIKATOR
                  * ==============================
                  */
                 $indicator = [];
@@ -131,97 +121,75 @@ class QuestionnaireImport implements ToCollection
 
                 /**
                  * ==============================
-                 * DETEKSI TIPE
+                 * TIPE PERTANYAAN
                  * ==============================
                  */
-                $isPilihan = false;
-                $options = [];
-
-                if ($pilihan !== '' && $score !== '' && $score !== '-') {
-                    if (!is_numeric(str_replace(',', '.', $score))) {
-                        $this->errors[] = "Baris {$excelRow}: Score harus angka.";
-                        continue;
-                    }
-
-                    $isPilihan = true;
-                    $options[] = [
-                        'text' => $pilihan,
-                        'score' => (float) str_replace(',', '.', $score),
-                    ];
-                }
+                $isPilihan = $pilihan !== '';
 
                 /**
                  * ==============================
-                 * CEK DUPLICATE (AMAN)
+                 * CEK DUPLIKAT
                  * ==============================
                  */
                 $exists = Question::whereRaw(
-    'LOWER(TRIM(question_text)) = ?',
-    [strtolower(trim($lastQuestionText))]
-)->exists();
-
+                    'LOWER(TRIM(question_text)) = ?',
+                    [strtolower(trim($lastQuestionText))]
+                )->exists();
 
                 if ($exists) {
-                    // sudah ada → jangan masuk preview
+                    $lastQuestionIndex = null;
                     continue;
                 }
 
                 /**
                  * ==============================
-                 * SIMPAN KE PREVIEW
+                 * SIMPAN DATA
                  * ==============================
                  */
                 $this->importData[] = [
-                    'row_number'   => $excelRow,
-                    'category_id'  => $currentCategory->id,
-                    'category_name'=> $currentCategory->name,
-                    'sub'          => $sub ?: null,
-                    'no'           => (int) $no,
-                    'question_text'=> $lastQuestionText,
-                    'clue'         => !$isPilihan ? ($pilihan ?: null) : null,
-                    'indicator'    => $indicator,
-                    'question_type'=> $isPilihan ? 'pilihan' : 'isian',
-                    'options'      => $options,
-                    'is_new'       => true,
+                    'row_number'      => $excelRow,
+                    'category_id'     => $currentCategory->id,
+                    'category_name'   => $currentCategory->name,
+                    'sub'             => $sub ?: null,
+                    'no'              => (int) $no,
+                    'question_text'   => $lastQuestionText,
+                    'clue'            => $isPilihan ? null : ($pilihan ?: null),
+                    'indicator'       => $indicator,
+                    'attachment_text' => $attachment,
+                    'question_type'   => $isPilihan ? 'pilihan' : 'isian',
+                    'options'         => $isPilihan
+                        ? [[
+                            'text'  => $pilihan,
+                            'score' => $score,
+                        ]]
+                        : [],
+                    'is_new' => true,
                 ];
 
                 $lastQuestionIndex = array_key_last($this->importData);
-                $questionCount++;
                 continue;
             }
 
             /**
              * ==============================
-             * OPSI LANJUTAN (PILIHAN)
+             * OPTION LANJUTAN
              * ==============================
              */
             if (
                 $lastQuestionIndex !== null &&
+                $deskripsi === '' &&
                 $pilihan !== '' &&
-                $score !== '' &&
-                $score !== '-'
+                $this->importData[$lastQuestionIndex]['question_type'] === 'pilihan'
             ) {
-                if (!is_numeric(str_replace(',', '.', $score))) {
-                    $this->errors[] = "Baris {$excelRow}: Score opsi harus angka.";
-                    continue;
-                }
-
-                if ($this->importData[$lastQuestionIndex]['question_type'] === 'pilihan') {
-                    $this->importData[$lastQuestionIndex]['options'][] = [
-                        'text' => $pilihan,
-                        'score' => (float) str_replace(',', '.', $score),
-                    ];
-                }
+                $this->importData[$lastQuestionIndex]['options'][] = [
+                    'text'  => $pilihan,
+                    'score' => $score,
+                ];
             }
         }
 
-        /**
-         * ==============================
-         * VALIDASI AKHIR
-         * ==============================
-         */
-        if ($questionCount === 0) {
-            $this->errors[] = 'Tidak ada pertanyaan baru yang dapat diimport.';
+        if (empty($this->importData)) {
+            $this->errors[] = 'Tidak ada data yang bisa diimport.';
         }
     }
 }

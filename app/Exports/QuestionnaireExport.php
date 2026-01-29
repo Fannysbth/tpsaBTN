@@ -18,11 +18,10 @@ class QuestionnaireExport implements FromCollection, WithHeadings, WithStyles, W
 {
     protected array $indicatorGroups = [];
     protected int $indicatorColumnCount = 0;
-    protected array $mergeMap = [];
 
     protected function lastIndicatorColumn(): string
     {
-        return Coordinate::stringFromColumnIndex(6 + $this->indicatorColumnCount);
+        return Coordinate::stringFromColumnIndex(6 + $this->indicatorColumnCount + 1);
     }
 
     public function __construct()
@@ -57,16 +56,14 @@ class QuestionnaireExport implements FromCollection, WithHeadings, WithStyles, W
         $rows = collect();
         $categories = Category::with('questions.options')->get();
 
-        $excelRow = 3; // data mulai setelah header 2 baris
-
         foreach ($categories as $category) {
 
             // ===== CATEGORY HEADER =====
             $rows->push(array_merge(
                 [$category->name, 'HEADER', '', '', '', ''],
-                array_fill(0, $this->indicatorColumnCount, '')
+                array_fill(0, $this->indicatorColumnCount, ''),
+                ['']
             ));
-            $excelRow++;
 
             $no = 1;
 
@@ -76,31 +73,19 @@ class QuestionnaireExport implements FromCollection, WithHeadings, WithStyles, W
                     ? json_decode($question->indicator, true) ?? []
                     : [];
 
-                $options = $question->question_type === 'pilihan'
-                    ? $question->options
-                    : collect();
-
-                $rowSpan = max(1, $options->count());
-                $startRow = $excelRow;
-
-                // ===== BARIS PERTAMA (PERTANYAAN + PILIHAN PERTAMA) =====
-                $firstOption = $options->first();
-
                 $isPilihan = $question->question_type === 'pilihan';
+                $options   = $isPilihan ? $question->options : collect();
+                $firstOpt  = $options->first();
 
-$baseRow = [
-    $question->sub,
-    $no++,
-    $question->question_text,
-    ':',
-    $isPilihan
-        ? ($firstOption->option_text ?? '')
-        : ($question->clue ?? '-'),
-    $isPilihan
-        ? ($firstOption->score ?? '')
-        : '-', // 👈 SCORE CLUE = STRIP
-];
-
+                // ===== BARIS PERTANYAAN (OPTION PERTAMA LANGSUNG DI SINI) =====
+                $baseRow = [
+                    $question->sub,
+                    $no++,
+                    $question->question_text,
+                    ':',
+                    $isPilihan ? ($firstOpt->option_text ?? '') : ($question->clue ?? '-'),
+                    $isPilihan ? ($firstOpt->score ?? '') : '-',
+                ];
 
                 foreach ($this->indicatorGroups as $group) {
                     foreach ($group['levels'] as $level) {
@@ -120,27 +105,19 @@ $baseRow = [
                     }
                 }
 
+                $baseRow[] = $question->attachment_text ?? '-';
                 $rows->push($baseRow);
-                $excelRow++;
 
-                // ===== BARIS PILIHAN SELANJUTNYA =====
-                if ($options->count() > 1) {
+                // ===== OPTION LANJUTAN (TANPA GAP) =====
+                if ($isPilihan && $options->count() > 1) {
                     foreach ($options->slice(1) as $opt) {
                         $rows->push(array_merge(
                             ['', '', '', '', $opt->option_text, (string) $opt->score],
-                            array_fill(0, $this->indicatorColumnCount, '')
+                            array_fill(0, $this->indicatorColumnCount, ''),
+                            ['']
                         ));
-                        $excelRow++;
                     }
                 }
-
-                // simpan untuk merge
-                $this->mergeMap[] = [
-    'start' => $startRow,
-    'end' => $startRow + $rowSpan - 1,
-    'hasScore' => $isPilihan
-];
-
             }
         }
 
@@ -159,6 +136,9 @@ $baseRow = [
             }
         }
 
+        $row1[] = 'Attachment';
+        $row2[] = '';
+
         return [$row1, $row2];
     }
 
@@ -171,8 +151,11 @@ $baseRow = [
         $sheet->getColumnDimension('E')->setWidth(40);
         $sheet->getColumnDimension('F')->setWidth(10);
 
-        $sheet->getStyle('C:E')->getAlignment()->setWrapText(true);
-        $sheet->getStyle('F')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $attachmentCol = Coordinate::stringFromColumnIndex(6 + $this->indicatorColumnCount + 1);
+        $sheet->getColumnDimension($attachmentCol)->setWidth(35);
+
+        $sheet->getStyle("C:E")->getAlignment()->setWrapText(true);
+        $sheet->getStyle($attachmentCol)->getAlignment()->setWrapText(true);
 
         return [];
     }
@@ -199,8 +182,8 @@ $baseRow = [
                     ],
                 ]);
 
-                // merge header tetap
-                foreach (['A','B','C','D','E','F'] as $col) {
+                // merge kolom statis header
+                foreach (['A','B','C','D','E','F', $lastColumn] as $col) {
                     $sheet->mergeCells("{$col}1:{$col}2");
                 }
 
@@ -216,7 +199,7 @@ $baseRow = [
                     $startColIndex += $count;
                 }
 
-                // ===== CATEGORY ROW STYLE =====
+                // ===== CATEGORY STYLE =====
                 for ($r = 3; $r <= $lastRow; $r++) {
                     if ($sheet->getCell("B{$r}")->getValue() === 'HEADER') {
                         $sheet->mergeCells("A{$r}:{$lastColumn}{$r}");
@@ -227,18 +210,6 @@ $baseRow = [
                                 'startColor' => ['rgb' => 'CAEDFB'],
                             ],
                         ]);
-                    }
-                }
-
-                // ===== MERGE PERTANYAAN & CLUE =====
-                foreach ($this->mergeMap as $m) {
-                    if ($m['start'] < $m['end']) {
-                        foreach (['A','B','C','D'] as $col) {
-                            $sheet->mergeCells("{$col}{$m['start']}:{$col}{$m['end']}");
-                        }
-                        if (!$m['hasScore']) {
-                            $sheet->mergeCells("E{$m['start']}:F{$m['end']}");
-                        }
                     }
                 }
 
