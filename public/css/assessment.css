@@ -676,6 +676,19 @@ select:focus {
     font-size: 14px;
 }
 
+.question-row.empty-row {
+    grid-template-columns: 1fr; /* cuma 1 kolom */
+}
+
+.question-row.empty-row .empty-cell {
+    grid-column: 1 / -1; /* ambil semua kolom */
+    text-align: center;
+    padding: 20px;
+    font-style: italic;
+    color: #666;
+}
+
+
 /* Header row */
 .question-header {
     background: #FCFCFC;

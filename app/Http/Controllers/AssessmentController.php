@@ -21,32 +21,39 @@ class AssessmentController extends Controller
 {
     public function index(Request $request)
 {
+    $month   = $request->input('month');
+    $year    = $request->input('year');
+    $company = $request->input('company');
 
-    $month = $request->input('month'); // bisa null
-        $year = $request->input('year');   // bisa null
+    $query = Assessment::orderBy('assessment_date', 'desc');
 
-        // Ambil semua assessments, bisa filter bulan/tahun jika dipilih
-        $query = Assessment::orderBy('assessment_date', 'desc');
+    if ($company) {
+        // buang titik & spasi dari input
+        $keyword = strtolower(preg_replace('/[^a-z0-9]/', '', $company));
 
-        if ($month) {
-            $query->whereMonth('assessment_date', $month);
-        }
+        $query->whereRaw(
+            "LOWER(REPLACE(REPLACE(company_name, '.', ''), ' ', '')) LIKE ?",
+            ['%' . $keyword . '%']
+        );
+    }
 
-        if ($year) {
-            $query->whereYear('assessment_date', $year);
-        }
+    if ($month) {
+        $query->whereMonth('assessment_date', $month);
+    }
 
-        $assessments = $query->get();
+    if ($year) {
+        $query->whereYear('assessment_date', $year);
+    }
 
+    $assessments = $query->get();
+    if ($request->ajax()) {
+        return view('assessment._table', compact('assessments'))->render();
+    }
 
-
-
-    // simpan URL ini di session
     session(['assessment_list_url' => request()->fullUrl()]);
 
-    // Tambahkan summary
     $totalCategories = Category::count();
-    $totalQuestions = Question::where('is_active', true)->count();
+    $totalQuestions  = Question::where('is_active', true)->count();
     $totalAssessments = Assessment::count();
 
     return view('assessment.index', compact(
@@ -58,6 +65,7 @@ class AssessmentController extends Controller
         'totalAssessments'
     ));
 }
+
 
 
 
