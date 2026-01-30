@@ -12,14 +12,10 @@ class AssessmentSeeder extends Seeder
 {
     public function run()
     {
-        // Hapus data lama
         Assessment::truncate();
         Answer::truncate();
 
-        // Buat assessment contoh untuk bulan ini
         $this->createCurrentMonthAssessments();
-
-        // Buat assessment contoh untuk bulan-bulan sebelumnya
         $this->createPreviousMonthsAssessments();
 
         $this->command->info('Assessment data seeded successfully!');
@@ -35,41 +31,18 @@ class AssessmentSeeder extends Seeder
             'PT. Global Solution',
         ];
 
-        $questions = Question::with('options')->get();
+        $questions = Question::with('options', 'category')->get();
 
         foreach ($companies as $index => $company) {
+
             $assessment = Assessment::create([
                 'company_name' => $company,
                 'assessment_date' => Carbon::now()->subDays($index),
                 'total_score' => 0,
-                'notes' => 'Assessment dilakukan secara menyeluruh',
+                'notes' => 'Assessment bulan berjalan',
             ]);
 
-            $totalScore = 0;
-
-            // Buat jawaban untuk setiap pertanyaan
-            foreach ($questions as $question) {
-                $answerData = $this->generateAnswer($question);
-                
-                $answer = Answer::create([
-                    'assessment_id' => $assessment->id,
-                    'question_id' => $question->id,
-                    'answer_text' => $answerData['answer'],
-                    'score' => $answerData['score'],
-                    'attachment_path' => $question->has_attachment ? 'dokumen/sample.pdf' : null,
-                ]);
-
-                $totalScore += $answerData['score'];
-            }
-
-            // Update total score dan risk level
-            $assessment->update([
-                'total_score' => $totalScore,
-                'risk_level' => $this->calculateRiskLevel($totalScore),
-            ]);
-
-            // Hitung category scores
-            $assessment->calculateCategoryScores();
+            $this->generateAnswers($assessment, $questions);
         }
     }
 
@@ -81,97 +54,90 @@ class AssessmentSeeder extends Seeder
             'PT. Mandiri Sejahtera',
             'UD. Berkah',
             'PT. Prima Utama',
-            'CV. Cahaya Baru',
-            'PT. Mitra Kerja',
-            'UD. Sentosa',
-            'PT. Nusantara',
-            'CV. Gemilang',
         ];
 
-        $questions = Question::with('options')->get();
+        $questions = Question::with('options', 'category')->get();
 
-        for ($i = 1; $i <= 3; $i++) {
+        for ($month = 1; $month <= 3; $month++) {
             foreach ($companies as $index => $company) {
+
                 $assessment = Assessment::create([
-                    'company_name' => $company . ' ' . $i,
-                    'assessment_date' => Carbon::now()->subMonths($i)->addDays($index),
+                    'company_name' => $company . ' ' . $month,
+                    'assessment_date' => Carbon::now()->subMonths($month)->addDays($index),
                     'total_score' => 0,
-                    'notes' => 'Assessment bulan lalu',
+                    'notes' => 'Assessment bulan sebelumnya',
                 ]);
 
-                $totalScore = 0;
-
-                foreach ($questions as $question) {
-                    $answerData = $this->generateAnswer($question);
-                    
-                    $answer = Answer::create([
-                        'assessment_id' => $assessment->id,
-                        'question_id' => $question->id,
-                        'answer_text' => $answerData['answer'],
-                        'score' => $answerData['score'],
-                        'attachment_path' => $question->has_attachment ? 'dokumen/sample_' . $i . '.pdf' : null,
-                    ]);
-
-                    $totalScore += $answerData['score'];
-                }
-
-                $assessment->update([
-                    'total_score' => $totalScore,
-                    'risk_level' => $this->calculateRiskLevel($totalScore),
-                ]);
-
-                $assessment->calculateCategoryScores();
+                $this->generateAnswers($assessment, $questions);
             }
         }
     }
 
-    private function generateAnswer($question)
+    private function generateAnswers($assessment, $questions)
     {
-        $answer = '';
-        $score = 0;
+        $totalScore = 0;
+        $categoryScores = [];
 
-        switch ($question->question_type) {
-            case 'pilihan':
-                $options = $question->options;
-                $selectedOption = $options->random();
-                $answer = $selectedOption->option_text;
-                $score = $selectedOption->score;
-                break;
+        foreach ($questions as $question) {
 
-            case 'checkbox':
-                $selectedOptions = $question->options->random(rand(1, 3));
-                $answer = json_encode($selectedOptions->pluck('option_text')->toArray());
-                $score = $selectedOptions->sum('score');
-                break;
+            $answerData = $this->generateAnswerByQuestion($question);
 
-            case 'isian':
-                $answers = [
-                    'Sudah diimplementasikan dengan baik',
-                    'Dalam proses implementasi',
-                    '85%',
-                    'Sistem manual dengan excel',
-                    'Rutin setiap bulan',
-                    '10% per tahun',
-                    'Backup harian dan cloud storage',
-                    'Menggunakan firewall dan antivirus',
-                    'Kepatuhan 100%',
-                    'Risk assessment quarterly',
-                ];
-                $answer = $answers[array_rand($answers)];
-                $score = rand(5, 10); // Random score untuk isian
-                break;
+            Answer::create([
+                'assessment_id' => $assessment->id,
+                'question_id' => $question->id,
+                'answer_text' => $answerData['answer'],
+                'score' => $answerData['score'],
+                'attachment_path' => $question->attachment_text ? 'dokumen/sample.pdf' : null,
+            ]);
+
+            $totalScore += $answerData['score'];
+
+            // hitung score per kategori
+            $categoryName = $question->category->name;
+            $categoryScores[$categoryName] = ($categoryScores[$categoryName] ?? 0) + $answerData['score'];
         }
 
+        $assessment->update([
+            'total_score' => $totalScore,
+            'risk_level' => $this->calculateRiskLevel($totalScore),
+            'category_scores' => json_encode($categoryScores),
+        ]);
+    }
+
+    private function generateAnswerByQuestion($question)
+    {
+        // PERTANYAAN PILIHAN
+        if ($question->question_type === 'pilihan') {
+
+            $option = $question->options->random();
+
+            return [
+                'answer' => $option->option_text,
+                'score' => $option->score,
+            ];
+        }
+
+        // PERTANYAAN ISIAN
+        $dummyAnswers = [
+            'Nama legal perusahaan' => 'PT Contoh Sejahtera',
+            'Website perusahaan' => 'https://www.contoh.co.id',
+            'Tanggal berdiri perusahaan' => '2018-06-12',
+            'Lokasi perusahaan (kantor utama)' => 'Jakarta',
+            'Struktur organisasi perusahaan' => 'Direktur Utama, IT Manager, Finance',
+            'Penanggung jawab perusahaan (CEO)' => 'Budi Santoso',
+            'Jumlah karyawan IT' => '15',
+        ];
+
         return [
-            'answer' => $answer,
-            'score' => $score,
+            'answer' => $dummyAnswers[$question->question_text] ?? 'Data tersedia',
+            'score' => 0,
         ];
     }
 
     private function calculateRiskLevel($score)
     {
-        if ($score >= 70) return 'high';
-        if ($score >= 40) return 'medium';
+        if ($score >= 7) return 'high';
+        if ($score >= 4) return 'medium';
         return 'low';
     }
 }

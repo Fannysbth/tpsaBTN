@@ -50,7 +50,6 @@
         @endfor
     </select>
 </form>
-
 </div>
 
 @if(session('success'))
@@ -135,6 +134,14 @@
 
 </div>
 
+<div style="margin-top:20px; display:flex; justify-content:flex-end; margin-right:30px;">
+<a href="{{ route('assessment.export.report', request()->query()) }}"
+   class="btn-success"
+   style="padding: 10px 24px; border-radius: 8px; font-weight: 500;">
+    <i class="fas fa-file-excel"></i>
+    <span>Export Excel</span>
+</a>
+</div>
 </div>
 
 {{-- Tambahkan script untuk konfirmasi upload --}}

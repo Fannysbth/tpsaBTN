@@ -20,7 +20,7 @@
         </div>
         <div class="company-header-right">
             <div style="display:flex; gap:10px;">
-                <a href="{{ route('dashboard.index') }}" 
+                <a href="{{ route('assessment.index') }}" 
                    style="background:transparent; color:#4880FF; padding:10px 20px; border-radius:6px; border:2px solid #4880FF; font-weight:bold; text-decoration:none;">
                     Back to List
                 </a>

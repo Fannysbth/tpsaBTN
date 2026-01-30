@@ -35,12 +35,18 @@ Route::post('/categories', [CategoryController::class, 'store'])->name('categori
 Route::delete('/categories/{id}', [CategoryController::class, 'destroy'])
     ->name('categories.destroy');
 
+
+Route::get('/assessment/export-report', [AssessmentController::class, 'exportReport'])
+    ->name('assessment.export.report');
+
 // Assessment Routes
 Route::prefix('assessment')->group(function () {
     Route::get('/', [AssessmentController::class, 'index'])->name('assessment.index');
     Route::get('/create', [AssessmentController::class, 'create'])->name('assessment.create');
     Route::post('/', [AssessmentController::class, 'store'])->name('assessment.store');
-    Route::get('/{assessment}', [AssessmentController::class, 'show'])->name('assessment.show');
+    Route::get('/{assessment}', [AssessmentController::class, 'show'])
+        ->whereNumber('assessment')
+        ->name('assessment.show');
     Route::get('/{assessment}/export', [AssessmentController::class, 'export'])->name('assessment.export');
     Route::get('/{assessment}/preview', [AssessmentController::class, 'previewExport'])->name('assessment.preview');
     Route::post('/{assessment}/import', [AssessmentController::class, 'import'])->name('assessment.import');
@@ -52,3 +58,5 @@ Route::prefix('assessment')->group(function () {
 Route::get('/questionnaire/export', [QuestionnaireController::class, 'export'])->name('questionnaire.export');
 Route::post('/questionnaire/import/preview', [QuestionnaireImportController::class, 'preview'])->name('questionnaire.import.preview');
 Route::post('/questionnaire/import', [QuestionnaireImportController::class, 'import'])->name('questionnaire.import');
+
+

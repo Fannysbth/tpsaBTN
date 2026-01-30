@@ -15,6 +15,8 @@ use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\AssessmentReport;
 use Illuminate\Support\Facades\Log;
+use App\Exports\AssessmentReportExport;
+
 
 
 class AssessmentController extends Controller
@@ -68,6 +70,38 @@ class AssessmentController extends Controller
 
 
 
+public function exportReport(Request $request)
+{
+    $month   = $request->input('month');
+    $year    = $request->input('year');
+    $company = $request->input('company');
+
+    $query = Assessment::orderBy('assessment_date', 'desc');
+
+    if ($company) {
+        $keyword = strtolower(preg_replace('/[^a-z0-9]/', '', $company));
+
+        $query->whereRaw(
+            "LOWER(REPLACE(REPLACE(company_name, '.', ''), ' ', '')) LIKE ?",
+            ['%' . $keyword . '%']
+        );
+    }
+
+    if ($month) {
+        $query->whereMonth('assessment_date', $month);
+    }
+
+    if ($year) {
+        $query->whereYear('assessment_date', $year);
+    }
+
+    $assessments = $query->get();
+
+    return Excel::download(
+        new AssessmentReportExport($assessments),
+        'assessment_report_' . now()->format('Ymd_His') . '.xlsx'
+    );
+}
 
     public function create()
 {
