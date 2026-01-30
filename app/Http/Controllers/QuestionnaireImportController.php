@@ -32,46 +32,50 @@ class QuestionnaireImportController extends Controller
     }
 
     public function import(Request $request)
-    {
-        $questions = $request->input('questions', []);
-        
-        foreach ($questions as $q) {
-            if (!isset($q['import']) || $q['import'] !== 'on') continue;
-            
-            // Cek apakah pertanyaan sudah ada
-            $existingQuestion = \App\Models\Question::where('question_text', $q['question_text'])
-                ->where('category_id', $q['category_id'])
-                ->first();
-            
-            if ($existingQuestion) {
-                continue; // Skip jika sudah ada
-            }
-            
-            // Buat pertanyaan baru
-            $question = \App\Models\Question::create([
-                'category_id' => $q['category_id'],
-                'sub' => $q['sub'] ?? null,
-                'question_text' => $q['question_text'],
-                'question_type' => $q['question_type'],
-                'clue' => $q['clue'] ?? null,
-                'indicator' => isset($q['indicator']) ? json_encode($q['indicator']) : json_encode([]),
-            ]);
-            
-            // Jika tipe pilihan, buat opsi
-            if ($q['question_type'] === 'pilihan' && isset($q['options'])) {
-                foreach ($q['options'] as $option) {
-                    if (!empty($option['text'])) {
-                        \App\Models\QuestionOption::create([
-                            'question_id' => $question->id,
-                            'option_text' => $option['text'],
-                            'score' => $option['score'] ?? 0,
-                        ]);
-                    }
-                }
+{
+    $questions = $request->input('questions', []);
+
+    foreach ($questions as $q) {
+
+        if (!isset($q['import'])) continue;
+
+        $questionText = trim($q['question_text'] ?? '');
+        if ($questionText === '') continue;
+
+        // Cek duplikat HANYA untuk import file
+        if (empty($q['is_new'])) {
+            $exists = \App\Models\Question::whereRaw(
+                'LOWER(TRIM(question_text)) = ?',
+                [strtolower($questionText)]
+            )->where('category_id', $q['category_id'])->exists();
+
+            if ($exists) continue;
+        }
+
+        $question = \App\Models\Question::create([
+            'category_id' => $q['category_id'],
+            'sub' => $q['sub'] ?? null,
+            'question_text' => $questionText,
+            'question_type' => $q['question_type'],
+            'clue' => $q['clue'] ?? null,
+            'indicator' => json_encode($q['indicator'] ?? []),
+        ]);
+
+        if ($q['question_type'] === 'pilihan') {
+            foreach ($q['options'] ?? [] as $option) {
+                if (trim($option['text'] ?? '') === '') continue;
+
+                \App\Models\QuestionOption::create([
+                    'question_id' => $question->id,
+                    'option_text' => $option['text'],
+                    'score' => $option['score'] ?? 0,
+                ]);
             }
         }
-        
-        return redirect()->route('questionnaire.index')
-            ->with('success', 'Data berhasil diimport!');
     }
+
+    return redirect()->route('questionnaire.index')
+        ->with('success', 'Data berhasil diimport!');
+}
+
 }

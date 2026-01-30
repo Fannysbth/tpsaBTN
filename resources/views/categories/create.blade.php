@@ -58,18 +58,7 @@
             </div>
         </div>
 
-        {{-- Existing Questions --}}
-        @php
-            $questionCounter = 0;
-        @endphp
-        @foreach(old('questions', []) as $qid => $question)
-            @php $questionCounter++; @endphp
-            @include('partials.question-card', [
-                'qid' => $qid,
-                'question' => $question,
-                'questionCounter' => $questionCounter
-            ])
-        @endforeach
+       
 
         {{-- New Questions Container --}}
         <div id="questions-container" style="display:flex; flex-direction:column; gap:16px; margin-top:16px;"></div>
@@ -101,7 +90,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded - Initializing...');
     
-    let questionCounter = {{ $questionCounter }};
+    const newQuestionId = 'new_' + Date.now();
     const categoryInput = document.getElementById('category-input');
     const answerState = {};
     const form = document.getElementById('category-form');
@@ -159,8 +148,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            questionCounter++;
-            const newQuestionId = 'new_' + Date.now() + '_' + questionCounter;
+            const questionNumber =
+    document.querySelectorAll('.question-card').length + 1;
+
+
+            const newQuestionId = 'new_' + Date.now();
             console.log('Creating new question with ID:', newQuestionId);
             
             // Pastikan container ada
@@ -183,9 +175,10 @@ document.addEventListener('DOMContentLoaded', function() {
             newCard.innerHTML = `
                <div class="question-header" style="padding: 20px; display: flex; justify-content: space-between; align-items: center;">
                             <div style="display: flex; align-items: center; gap: 16px;">
-                        <div style="width: 32px; height: 32px; border-radius: 50%; background: #F0F7FF; 
+                        <div  class="question-number"
+                        style="width: 32px; height: 32px; border-radius: 50%; background: #F0F7FF; 
                                           display: flex; align-items: center; justify-content: center; font-size: 14px; color: #4880FF; font-weight: bold;">
-                            ${questionCounter}
+                               ${questionNumber}
                         </div>
                         <div >
                             <div style="font-weight: 600; color: #202224; font-size: 16px;">
@@ -310,6 +303,7 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
             
             questionsContainer.appendChild(newCard);
+            renumberQuestions();
             console.log('New question card added to container');
             
             // Initialize state
@@ -355,6 +349,16 @@ document.addEventListener('DOMContentLoaded', function() {
         textarea.style.height = 'auto';
         textarea.style.height = (textarea.scrollHeight) + 'px';
     }
+
+    function renumberQuestions() {
+    document.querySelectorAll('.question-card').forEach((card, index) => {
+        const numberCircle = card.querySelector('.question-number');
+        if (numberCircle) {
+            numberCircle.textContent = index + 1;
+        }
+    });
+}
+
     
     function updateQuestionPreview(card) {
         const textarea = card.querySelector('.question-textarea');
@@ -463,15 +467,21 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Delete question
         if (e.target.closest('.delete-question-btn')) {
-            const button = e.target.closest('.delete-question-btn');
-            const questionCard = button.closest('.question-card');
-            
-            if (questionCard) {
-                if (confirm('Are you sure you want to delete this question?')) {
-                    questionCard.remove();
-                }
-            }
+    const button = e.target.closest('.delete-question-btn');
+    const questionCard = button.closest('.question-card');
+
+    if (questionCard) {
+        const qid = questionCard.dataset.questionId;
+
+        if (confirm('Are you sure you want to delete this question?')) {
+            delete answerState[qid]; // 🔥 bersihkan state
+            questionCard.remove();
+            renumberQuestions();
         }
+    }
+}
+
+
     });
     
     // Question type change delegation
@@ -551,8 +561,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const allCheckboxes = questionCard.querySelectorAll('input[type="checkbox"][name$="[indicator][]"]');
             const map = {
                 high: ['high'],
-                medium: ['medium', 'high'],
-                low: ['low', 'high', 'medium']
+                medium: ['medium'],
+                low: ['low']
             };
             
             const selected = checkbox.value;

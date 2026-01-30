@@ -236,7 +236,8 @@
     <button 
         type="button" 
         class="delete-question-btn"
-        data-question-id="${newQuestionId}"
+        data-question-id="{{ $question->id }}"
+        data-category-name="{{ $category->name }}"
         style="align-self: flex-start; padding: 10px 20px; background: #FF4D4F; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.2s;"
         onmouseover="this.style.background='#FF3333'"
         onmouseout="this.style.background='#FF4D4F'">
@@ -334,15 +335,14 @@
 
         {{-- Buttons --}}
         <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 30px; margin-right: 20px; gap: 12px;">
-            <button 
+            <a  href="{{ route('questionnaire.index') }}"
                 type="button"
                 id="cancelBtn"
                 style="padding: 12px 28px; background: white; color: #4880FF; border: 1px solid #4880FF; 
                        border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer;"
-                onclick="history.back()"
             >
                 Cancel
-            </button>
+        </a>
             
             <button 
                 type="submit" 
@@ -505,7 +505,203 @@ document.querySelectorAll('.indicator-item').forEach(item => {
 });
 </script>
 
+<script>
+document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.add-option-btn')
+    if (!btn) return
 
+    const questionId = btn.dataset.questionId
+    const card = btn.closest('.question-card')
+    const container = card.querySelector('.options-container')
+
+    const index = container.children.length
+
+    const option = document.createElement('div')
+    option.className = 'option-item'
+    option.style = 'display:flex;gap:12px;align-items:center;'
+
+    option.innerHTML = `
+        <input type="text"
+               name="questions[${questionId}][options][${index}][text]"
+               placeholder="Option text"
+               style="flex:1;padding:10px;border:1px solid #4880FF;border-radius:6px;">
+        <input type="number"
+               name="questions[${questionId}][options][${index}][score]"
+               placeholder="Score"
+               style="width:80px;padding:10px;border:1px solid #4880FF;border-radius:6px;">
+        <button type="button" class="delete-option-btn"
+                style="background:none;border:none;color:#FF4D4F;font-size:18px;">
+            ×
+        </button>
+    `
+
+    container.appendChild(option)
+
+    // 🔥 UPDATE CACHE
+    updateOptionCache(card)
+})
+</script>
+
+<script>
+document.addEventListener('change', function (e) {
+    if (!e.target.classList.contains('question-type-select')) return
+
+    const select = e.target
+    const type = select.value
+    const questionId = select.dataset.questionId
+    const card = select.closest('.question-card')
+    const answerSection = card.querySelector('.answer-section')
+
+    if (!answerSection) return
+
+    // init cache
+    if (!card._optionCache) card._optionCache = null
+    if (!card._clueCache) card._clueCache = ''
+
+    /* ======================
+       SWITCH TO TEXT
+    ====================== */
+    if (type === 'isian') {
+
+        const container = answerSection.querySelector('.options-container')
+        if (container) {
+            card._optionCache = container.cloneNode(true)
+        }
+
+        answerSection.innerHTML = ''
+
+        const wrap = document.createElement('div')
+
+        wrap.innerHTML = `
+            <label style="font-weight:600;margin-bottom:8px;display:block">
+                Answer Clue
+            </label>
+        `
+
+        const input = document.createElement('input')
+        input.type = 'text'
+        input.name = `questions[${questionId}][clue]`
+        input.value = card._clueCache
+        input.style = 'padding:12px;border:1px solid #4880FF;border-radius:8px;width:100%;'
+
+        wrap.appendChild(input)
+        answerSection.appendChild(wrap)
+
+        return
+    }
+
+    /* ======================
+       SWITCH TO PILIHAN
+    ====================== */
+    if (type === 'pilihan') {
+
+        answerSection.innerHTML = ''
+
+        const wrap = document.createElement('div')
+
+        const label = document.createElement('label')
+        label.textContent = 'Options'
+        label.style = 'font-weight:600;margin-bottom:12px;display:block'
+        wrap.appendChild(label)
+
+        const container = card._optionCache
+            ? card._optionCache.cloneNode(true)
+            : document.createElement('div')
+
+        container.classList.add('options-container')
+        container.style.display = 'flex'
+        container.style.flexDirection = 'column'
+        container.style.gap = '12px'
+
+        wrap.appendChild(container)
+
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.className = 'add-option-btn'
+        btn.dataset.questionId = questionId
+        btn.textContent = '+ Add Option'
+        btn.style = 'margin-top:12px;padding:10px 20px;background:#4880FF;color:white;border:none;border-radius:6px;'
+
+        wrap.appendChild(btn)
+
+        answerSection.appendChild(wrap)
+    }
+})
+
+
+/* =========================
+   SAVE CLUE WHILE TYPING
+========================= */
+document.addEventListener('input', function (e) {
+    if (e.target.name && e.target.name.includes('[clue]')) {
+        const card = e.target.closest('.question-card')
+        if (card) {
+            card._clueCache = e.target.value
+        }
+    }
+})
+
+function updateOptionCache(card) {
+    const container = card.querySelector('.options-container')
+    if (!container) return
+
+    // CLONE DOM (INI KUNCI)
+    card._optionCache = container.cloneNode(true)
+}
+
+
+document.addEventListener('input', function (e) {
+    if (
+        e.target.name?.includes('[options]') ||
+        e.target.closest('.option-item')
+    ) {
+        const card = e.target.closest('.question-card')
+        if (card) updateOptionCache(card)
+    }
+})
+
+document.querySelectorAll('.question-card').forEach(card => {
+    const optionsContainer = card.querySelector('.options-container')
+    if (optionsContainer) {
+        card._optionCache = optionsContainer.innerHTML
+    } else {
+        card._optionCache = ''
+    }
+
+    const clueInput = card.querySelector('input[name*="[clue]"]')
+    card._clueCache = clueInput ? clueInput.value : ''
+})
+</script>
+
+<script>
+document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.delete-question-btn')
+    if (!btn) return
+
+    e.preventDefault()
+    e.stopPropagation() // ⛔ jangan toggle card
+
+    const card = btn.closest('.question-card')
+    if (!card) return
+
+    const confirmDelete = confirm(
+        `PERINGATAN!\n\n` +
+        `Pertanyaan ini akan DIHAPUS.\n` +
+        `Perubahan ini tidak bisa dibatalkan.\n\n` +
+        `Yakin ingin melanjutkan?`
+    )
+
+    if (!confirmDelete) return
+
+    // 🔥 hapus dari DOM
+    card.remove()
+
+    // (opsional) update nomor pertanyaan
+    document.querySelectorAll('.question-number').forEach((el, i) => {
+        el.textContent = i + 1
+    })
+})
+</script>
 
 
 
