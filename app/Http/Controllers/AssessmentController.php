@@ -154,10 +154,7 @@ public function exportReport(Request $request)
                 $defaultAnswer = null;
                 $defaultScore = 0;
                 
-                // Jika ada clue, gunakan sebagai default
-                if ($question->clue) {
-                    $defaultAnswer = $question->clue;
-                }
+               
                 
                 $answersToCreate[] = [
                     'question_id' => $question->id,
@@ -183,8 +180,9 @@ public function exportReport(Request $request)
         
         DB::commit();
         
-        return redirect()->route('assessment.show', $assessment)
-            ->with('alert_success', 'Assessment berhasil ditambahkan.');
+        return redirect()->route('assessment.index')
+    ->with('alert_success', 'Assessment berhasil ditambahkan.');
+
             
     } catch (\Exception $e) {
         DB::rollBack();
@@ -254,10 +252,12 @@ public function update(Request $request, $id)
                 ->orderBy('order')
                 ->get();
 
+
+
             foreach ($questions as $question) {
                 $answersToCreate[] = [
                     'question_id' => $question->id,
-                    'answer_text' => $question->clue ?? null,
+                    'answer_text' =>  null,
                     'score' => 0
                 ];
             }
@@ -278,10 +278,9 @@ public function update(Request $request, $id)
         DB::commit();
 
         // Redirect kembali ke halaman list yang disimpan di session
-$redirectUrl = session('assessment_list_url', route('assessment.index'));
-
-return redirect($redirectUrl)
+return redirect()->route('assessment.show', $assessment->id)
        ->with('success', 'Assessment berhasil diperbarui. Jawaban lama dihapus dan siap diisi ulang.');
+
 
     } catch (\Exception $e) {
         DB::rollBack();

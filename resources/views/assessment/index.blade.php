@@ -68,30 +68,52 @@
 <div class="question-card" style="margin-top: 10px; margin-right: 30px;">
 
     {{-- TABLE HEADER --}}
-    <div class="question-header">
+    <div class="question-header" style="grid-template-columns: 30px 150px 1fr 180px 200px 100px">
         <div>No</div>
-        <div>Date</div>
+        <div style= "text-align:center;">Date</div>
         <div>Company Name</div>
-        <div>Risk Level</div>
-        <div style="text-align:center; width: 250px;">Action</div> {{-- Tambah width untuk action column --}}
-        <div style="text-align:center;">Detail</div>
+        <div style= "text-align:center;">Risk Level</div>
+        <div style= "text-align:center;">Action</div>
+        <div style= "text-align:center;">Detail</div>
     </div>
 
     {{-- TABLE DATA --}}
     {{-- TABLE DATA --}}
 <div id="assessment-table-body">
     @forelse($assessments as $index => $assessment)
-        <div class="question-row">
+        <div class="question-row" style="grid-template-columns: 30px 150px 1fr 180px 200px 100px">
             <div>{{ $index + 1 }}</div>
-            <div>{{ $assessment->assessment_date->format('d/m/Y') }}</div>
+            <div style= "text-align:center;">{{ $assessment->assessment_date->format('d/m/Y') }}</div>
             <div>{{ $assessment->company_name }}</div>
-            <div>{{ $assessment->risk_level_label ? strtoupper($assessment->risk_level_label) : '-' }}</div>
+            <div style= "text-align:center;">{{ $assessment->risk_level_label ? strtoupper($assessment->risk_level_label) : '-' }}</div>
 
             <div class="action-btns" style="display:flex; justify-content:center; gap:5px; flex-wrap: wrap;">
-                <a href="{{ route('assessment.edit', $assessment->id) }}" class="btn btn-sm btn-warning">
-                    Edit
-                </a>
-                <a href="{{ route('assessment.export', $assessment) }}" class="btn btn-sm btn-primary">
+                
+                <form action="{{ route('assessment.import', $assessment) }}"
+      method="POST"
+      enctype="multipart/form-data">
+    @csrf
+
+    <label for="excel_file"
+            class="btn btn-sm btn-warning"
+            style="
+               font-weight:bold;
+               width: 80px;
+           "
+           >
+        Upload
+    </label>
+
+    <input type="file"
+           id="excel_file"
+           name="excel_file"
+           accept=".xls,.xlsx"
+           required
+           style="display:none"
+           onchange="this.form.submit()">
+</form>
+
+                <a href="{{ route('assessment.export', $assessment) }}" class="btn btn-sm btn-primary" style="width: 80px;">
                     Export
                 </a>
             </div>
@@ -106,12 +128,35 @@
          @forelse($assessments as $index => $assessment)
     <div class="question-row">
         <div>{{ $index + 1 }}</div>
-        <div>{{ $assessment->assessment_date->format('d/m/Y') }}</div>
+        <div style= "text-align:center;">{{ $assessment->assessment_date->format('d/m/Y') }}</div>
         <div>{{ $assessment->company_name }}</div>
-        <div>{{ strtoupper($assessment->risk_level_label ?? '-') }}</div>
+        <div style= "text-align:center;">{{ strtoupper($assessment->risk_level_label ?? '-') }}</div>
 
         <div class="action-btns">
-            <a href="{{ route('assessment.edit', $assessment->id) }}" class="btn btn-warning btn-sm">Edit</a>
+            <form action="{{ route('assessment.import', $assessment) }}"
+      method="POST"
+      enctype="multipart/form-data">
+    @csrf
+
+    <label for="excel_file"
+            class="btn btn-sm btn-warning"
+            style="
+               font-weight:bold;
+               width: 80px;
+           "
+           >
+        Upload
+    </label>
+
+    <input type="file"
+           id="excel_file"
+           name="excel_file"
+           accept=".xls,.xlsx"
+           required
+           style="display:none"
+           onchange="this.form.submit()">
+</form>
+
             <a href="{{ route('assessment.export', $assessment) }}" class="btn btn-primary btn-sm">Export</a>
         </div>
 

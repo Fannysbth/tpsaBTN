@@ -76,7 +76,7 @@
 
             {{-- BUTTONS --}}
             <div style="display:flex; justify-content:flex-end; gap:20px;">
-                <a href="{{ route('dashboard.index') }}"
+                <a href="{{ url()->previous()  }}"
                    style="border:1px solid #4880FF; padding:10px 16px; border-radius:6px; color:#4880FF; font-weight:bold; text-decoration:none;">
                     Cancel
                 </a>
