@@ -60,4 +60,3 @@ Route::post('/questionnaire/import/preview', [QuestionnaireImportController::cla
 Route::post('/questionnaire/import', [QuestionnaireImportController::class, 'import'])->name('questionnaire.import');
 
 
-Route::get('/assessment/{id}/edit', [AssessmentController::class, 'edit'])->name('assessment.edit');

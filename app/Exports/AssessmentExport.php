@@ -27,6 +27,8 @@ class AssessmentExport implements
     protected array $categoryRowMap = [];
     protected array $questionsMap   = [];
     protected int $categoryColumnCount = 0;
+    protected int $lastTableRow = 0;
+
 
     public function __construct(Assessment $assessment)
     {
@@ -48,7 +50,7 @@ class AssessmentExport implements
     // kolom matrix = 2 kolom awal + (category * 3)
     private function matrixColCount(): int
     {
-        return 2 + $this->categoryColumnCount;
+        return 6 + $this->categoryColumnCount;
     }
 
     private function lastMatrixColumnLetter(): string
@@ -71,15 +73,20 @@ class AssessmentExport implements
         $grouped = $this->assessment->answers
             ->groupBy(fn ($a) => $a->question->category_id);
 
+        $no = 1;
+    
+
         foreach ($grouped as $categoryId => $answers) {
             $category  = $answers->first()->question->category;
             $indicator = $this->assessment->category_scores[$categoryId]['indicator'] ?? null;
 
             // ===== ROW JUDUL CATEGORY =====
             $data[] = array_merge(
-                ['Kategori: ' . $category->name . ' (Indikator: ' . strtoupper((string) $indicator) . ')'],
-                $this->emptyCols($this->matrixColCount() - 1)
-            );
+    ['Kategori: ' . $category->name . ' (Indikator: ' . strtoupper((string) $indicator) . ')'],
+    $this->emptyCols($this->matrixColCount() - 1)
+);
+
+
 
             $this->categoryRowMap[$categoryId] = $row;
             $row++;
@@ -89,21 +96,27 @@ class AssessmentExport implements
                 $question = $answer->question;
 
                 $data[] = array_merge(
-                    [
-                        $question->question_text,
-                        $answer->answer_text ?? ($question->clue ?? '-- Pilih Jawaban --'),
-                    ],
-                    $this->emptyCols($this->categoryColumnCount)
-                );
+    [
+        $question->sub ?? '-',              // A: Sub Kategori
+        $no++,                               // B: Nomor urut global
+        $question->question_text,            // C: Pertanyaan
+        ':',                                 // D
+        $answer->answer_text
+            ?? ($question->clue ?? '-- Pilih Jawaban --'), // E
+        $question->has_attachment
+            ? ($question->attachment_text ?: '-')
+            : '-',                           // F
+    ],
+    $this->emptyCols($this->categoryColumnCount)
+);
+
+
 
                 $this->questionsMap[$row] = $question;
                 $row++;
             }
-
-            // spacer
-            $data[] = $this->emptyCols($this->matrixColCount());
-            $row++;
         }
+$this->lastTableRow = $row - 1;
 
         return collect($data);
     }
@@ -112,13 +125,15 @@ class AssessmentExport implements
      * Headings (HANYA MATRIX)
      * ======================= */
 
-    public function headings(): array
-    {
-        return array_merge(
-            ['PERTANYAAN', 'JAWABAN'],
-            $this->emptyCols($this->categoryColumnCount)
-        );
-    }
+   public function headings(): array
+{
+    return array_merge(
+        ['SUB KATEGORI', 'NO', 'PERTANYAAN', ':', 'JAWABAN', 'ATTACHMENT'],
+        $this->emptyCols($this->categoryColumnCount)
+    );
+}
+
+
 
     /* =======================
      * Events
@@ -133,70 +148,99 @@ class AssessmentExport implements
                 $lastRow    = $sheet->getHighestRow();
                 $lastMatrix = $this->lastMatrixColumnLetter();
 
-                /* =======================
-                 * ATTACHMENT (KOLOM TERAKHIR)
-                 * ======================= */
-
-                $attachmentColIndex = Coordinate::columnIndexFromString($lastMatrix) + 1;
-                $attachmentCol      = Coordinate::stringFromColumnIndex($attachmentColIndex);
-
-                // header attachment
-                $sheet->setCellValue("{$attachmentCol}1", 'ATTACHMENT');
-
-                foreach ($this->questionsMap as $row => $question) {
-                    $answer = $this->assessment->answers
-                        ->firstWhere('question_id', $question->id);
-
-                    $sheet->setCellValue(
-                        "{$attachmentCol}{$row}",
-                        $question->has_attachment
-                            ? ($answer->attachment_info ?? '-')
-                            : '-'
-                    );
-                }
+                
 
                 /* =======================
                  * MERGE ROW CATEGORY
                  * ======================= */
 
                 foreach ($this->categoryRowMap as $row) {
-                    $sheet->mergeCells("A{$row}:{$lastMatrix}{$row}");
-                    $sheet->getStyle("A{$row}")->getFont()->setBold(true);
-                }
+    $sheet->mergeCells("A{$row}:F{$row}");
+
+    $sheet->getStyle("A{$row}:F{$row}")->applyFromArray([
+        'font' => [
+            'bold' => true,
+        ],
+        'fill' => [
+            'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+            'startColor' => ['argb' => 'FFCAEDFB'],
+        ],
+        'borders' => [
+            'allBorders' => [
+                'borderStyle' => Border::BORDER_THIN,
+            ],
+        ],
+    ]);
+}
+
+
 
                 /* =======================
                  * DROPDOWN & FONT
                  * ======================= */
 
                 for ($r = 2; $r <= $lastRow; $r++) {
-                    $cell     = "B{$r}";
-                    $question = $this->questionsMap[$r] ?? null;
+    $cell     = "E{$r}";
+    $question = $this->questionsMap[$r] ?? null;
 
-                    if (!$question || $sheet->getCell($cell)->getValue() === '') {
-                        $sheet->getStyle($cell)
-                            ->getFont()
-                            ->getColor()
-                            ->setARGB('FF999999');
-                    } else {
-                        $sheet->getStyle($cell)
-                            ->getFont()
-                            ->getColor()
-                            ->setARGB(Color::COLOR_BLACK);
-                    }
+    // Style default kolom JAWABAN
+    $sheet->getStyle($cell)->getFont()
+        ->setItalic(true)
+        ->getColor()->setARGB('FF808080');
 
-                    if ($question && $question->question_type === 'pilihan') {
-                        $options = $question->options->pluck('option_text')->toArray();
-                        array_unshift($options, '-- Pilih Jawaban --');
+    if ($question && $question->question_type === 'pilihan') {
+        $options = $question->options->pluck('option_text')->toArray();
+        array_unshift($options, '-- Pilih Jawaban --');
 
-                        $validation = $sheet->getCell($cell)->getDataValidation();
-                        $validation->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST);
-                        $validation->setAllowBlank(true);
-                        $validation->setShowDropDown(true);
-                        $validation->setFormula1('"' . implode(',', $options) . '"');
-                    }
-                }
+        $validation = $sheet->getCell($cell)->getDataValidation();
+        $validation->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST);
+        $validation->setAllowBlank(true);
+        $validation->setShowDropDown(true);
+        $validation->setFormula1('"' . implode(',', $options) . '"');
+    }
+}
 
                 $sheet->freezePane('A2');
+                $startRow = $this->lastTableRow + 2;
+
+$sheet->mergeCells("C{$startRow}:E{$startRow}");
+
+$text = "Saya yang bertanda-tangan di bawah ini menyatakan bahwa data yang saya isi pada formulir ini adalah benar, dan Apabila di kemudian hari ditemukan kecurangan/pemalsuan/penipuan pada data, dokumen atau informasi tersebut, maka saya bersedia diberikan sanksi sesuai dengan perundangan/peraturan yang berlaku.";
+
+$sheet->setCellValue("C{$startRow}", $text);
+
+// wrap & alignment
+$sheet->getStyle("C{$startRow}:E{$startRow}")->applyFromArray([
+    'alignment' => [
+        'wrapText' => true,
+        'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP,
+        'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT,
+    ],
+]);
+
+// 🔥 HITUNG TINGGI BARIS (KUNCI)
+$charPerLine = 90; // sesuaikan dengan lebar C:E
+$lineCount  = ceil(strlen($text) / $charPerLine);
+$rowHeight  = max(60, $lineCount * 18);
+
+$sheet->getRowDimension($startRow)->setRowHeight($rowHeight);
+
+
+$sheet->setCellValue("C" . ($startRow + 2), "<Lokasi, Tanggal>");
+
+$sheet->setCellValue("C" . ($startRow + 3), "TTD, materai dan CAP perusahaan");
+
+$sheet->setCellValue("C" . ($startRow + 7), "(…………………………………….)");
+
+$sheet->setCellValue("C" . ($startRow + 8), "<Nama Perusahaan>");
+
+$sheet->getStyle("C" . ($startRow + 2) . ":C" . ($startRow + 8))->applyFromArray([
+    'alignment' => [
+        'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+        'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+    ],
+]);
+
             }
         ];
     }
@@ -206,22 +250,60 @@ class AssessmentExport implements
      * ======================= */
 
     public function styles(Worksheet $sheet)
-    {
-        $lastRow    = $sheet->getHighestRow();
-        $lastMatrix = $this->lastMatrixColumnLetter();
+{
+    $lastRow = $this->lastTableRow;
 
-        $sheet->getStyle("A1:{$lastMatrix}1")->getFont()->setBold(true);
-        $sheet->getStyle("A1:{$lastMatrix}{$lastRow}")
-            ->getBorders()
-            ->getAllBorders()
-            ->setBorderStyle(Border::BORDER_THIN);
-    }
+    // HEADER
+    $sheet->getStyle("A1:F1")->applyFromArray([
+        'font' => [
+            'bold'  => true,
+            'color' => ['argb' => 'FFFFFFFF'],
+        ],
+        'fill' => [
+            'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+            'startColor' => ['argb' => 'FF0070C0'],
+        ],
+        'alignment' => [
+            'wrapText' => true,
+            'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+        ],
+        'borders' => [
+            'allBorders' => [
+                'borderStyle' => Border::BORDER_THIN,
+            ],
+        ],
+    ]);
+
+    // DATA
+    $sheet->getStyle("A2:F{$lastRow}")->applyFromArray([
+        'alignment' => [
+            'wrapText' => true,
+            'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP,
+        ],
+        'borders' => [
+            'allBorders' => [
+                'borderStyle' => Border::BORDER_THIN,
+            ],
+        ],
+    ]);
+}
+
+
+
+
+
 
     public function columnWidths(): array
-    {
-        return [
-            'A' => 50,
-            'B' => 40,
-        ];
-    }
+{
+    return [
+        'A' => 20, // Sub kategori
+        'B' => 5,  // No
+        'C' => 45, // Pertanyaan
+        'D' => 2,  // :
+        'E' => 40, // Jawaban
+        'F' => 30, // Attachment
+    ];
+}
+
 }
