@@ -289,6 +289,42 @@ return redirect()->route('assessment.show', $assessment->id)
     }
 }
 
+public function heatmapTPSA()
+{
+    $assessments = Assessment::all();
+
+    $matrix = [
+        'high' => [
+            'Kurang Memadai' => [],
+            'Cukup Memadai'  => [],
+            'Sangat Memadai' => [],
+        ],
+        'medium' => [
+            'Kurang Memadai' => [],
+            'Cukup Memadai'  => [],
+            'Sangat Memadai' => [],
+        ],
+        'low' => [
+            'Kurang Memadai' => [],
+            'Cukup Memadai'  => [],
+            'Sangat Memadai' => [],
+        ],
+    ];
+
+    foreach ($assessments as $assessment) {
+        $cell = $assessment->heatmap_cell;
+
+        $matrix[$cell['x']][$cell['y']][] = [
+            'company' => $cell['company'],
+            'score'   => $cell['score'],
+        ];
+    }
+
+    return view('assessment.heatmap-tpsa', compact('matrix'));
+}
+
+
+
 
 // App/Http/Controllers/AssessmentController.php
 

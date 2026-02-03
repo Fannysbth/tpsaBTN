@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 class Assessment extends Model
 {
     use HasFactory;
+  
 
     protected $fillable = [
     'company_name', 'assessment_date', 'total_score',
@@ -82,7 +83,97 @@ public function getRiskLevelLabelAttribute()
         'high'   => 'Kurang Memadai',
         default  => '-',
     };
+
+
 }
+
+// Di dalam class Assessment, tambahkan method:
+
+/**
+ * Get compliance level for a score
+ */
+public static function getComplianceLevel($score): string
+{
+    if ($score >= 80) return 'Sangat Memadai';
+    if ($score >= 50) return 'Cukup Memadai';
+    return 'Kurang Memadai';
+}
+
+/**
+ * Get compliance level color
+ */
+public static function getComplianceColor($score): string
+{
+    if ($score >= 80) return '#4AD991';
+    if ($score >= 50) return '#FEC53D';
+    return '#FF6B6B';
+}
+
+/**
+ * Get heatmap data for category × vendor
+ */
+public function getCategoryVendorHeatmapData(): array
+{
+    $categories = Category::orderBy('id')->get();
+    $categoryScores = $this->category_scores ?? [];
+    
+    $data = [];
+    foreach ($categories as $category) {
+        $score = $categoryScores[$category->id]['score'] ?? 0;
+        $data[$category->name] = [
+            'score' => $score,
+            'level' => self::getComplianceLevel($score),
+            'color' => self::getComplianceColor($score)
+        ];
+    }
+    
+    return $data;
+}
+
+public function getHeatmapCellAttribute(): array
+{
+    return [
+        'x' => $this->inherent_risk,               // Low / Medium / High
+        'y' => $this->risk_level_label,            // Sangat / Cukup / Kurang
+        'company' => $this->company_name,
+        'score' => $this->total_score
+    ];
+}
+
+
+public function getInherentRiskAttribute(): string
+{
+    $scores = collect($this->category_scores ?? []);
+
+    // ambil indikator dari kategori-kategori TPSA
+    $indicators = $scores->pluck('indicator')->filter();
+
+    // mapping low=1, medium=2, high=3
+    $map = [
+        'low' => 1,
+        'medium' => 2,
+        'high' => 3,
+    ];
+
+    $total = $indicators->map(fn($i) => $map[$i] ?? 0)->sum();
+
+    if ($total >= 8) return 'high';
+    if ($total >= 5) return 'medium';
+    return 'low';
+}
+
+
+// App\Models\Assessment.php
+public static function scoreToRiskLabel(float $score): string
+{
+    if ($score >= 80) {
+        return 'Sangat Memadai';
+    } elseif ($score >= 50) {
+        return 'Cukup Memadai';
+    }
+    return 'Kurang Memadai';
+}
+
 
 public function calculateCategoryScores()
 {
