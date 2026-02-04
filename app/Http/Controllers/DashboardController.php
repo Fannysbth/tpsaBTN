@@ -3,239 +3,149 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
-use App\Http\Controllers\Controller;
 use App\Models\Question;
 use App\Models\Assessment;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
     public function index(Request $request)
     {
         $month = $request->input('month');
-        $year  = $request->input('year');
+        $year = $request->input('year');
 
         $query = Assessment::orderBy('assessment_date', 'desc');
 
-        if ($month) {
-            $query->whereMonth('assessment_date', $month);
-        }
-
-        if ($year) {
-            $query->whereYear('assessment_date', $year);
-        }
+        if ($month) $query->whereMonth('assessment_date', $month);
+        if ($year) $query->whereYear('assessment_date', $year);
 
         $assessments = $query->get();
+        
+        // Data untuk card summary
+        $totalCategories = Category::count();
+        $totalQuestions = Question::count();
+        $totalAssessmentsCount = Assessment::count();
 
-        $totalCategories   = Category::count();
-        $totalQuestions    = Question::where('is_active', true)->count();
-        $totalAssessments  = Assessment::count();
-
-        // ======================
-        // HEATMAP 1: Category × Compliance
-        // ======================
-        $heatmap1 = $this->generateCategoryComplianceHeatmap($assessments);
-
-        // ======================
-        // HEATMAP 2: Vendor × Compliance
-        // ======================
-        $heatmap2 = $this->generateVendorComplianceHeatmap($assessments);
-
-        // ======================
-        // HEATMAP 3: Category × Vendor (Global TPSA)
-        // ======================
-        $heatmap3 = $this->generateCategoryVendorHeatmap($assessments);
-
-        return view('dashboard.index', compact(
-            'assessments',
-            'month',
-            'year',
-            'totalCategories',
-            'totalQuestions',
-            'totalAssessments',
-            'heatmap1',
-            'heatmap2',
-            'heatmap3'
-        ));
+        return view('dashboard.index', [
+            'assessments' => $assessments,
+            'totalCategories' => $totalCategories,
+            'totalQuestions' => $totalQuestions,
+            'totalAssessments' => $totalAssessmentsCount,
+            'vendorHeatmap' => $this->vendorHeatmap($assessments),
+            'vendorScoresChart' => $this->vendorScoresChart($assessments),
+        ]);
     }
 
-    /**
-     * HEATMAP 1: Category × Compliance
-     * X-axis: Categories, Y-axis: Compliance Level
-     */
-    private function generateCategoryComplianceHeatmap($assessments)
+    private function vendorHeatmap($assessments)
 {
+    // Ambil semua kategori
     $categories = Category::orderBy('id')->get();
-    $complianceLevels = ['Sangat Memadai', 'Cukup Memadai', 'Kurang Memadai'];
 
-    $matrix = [];
-    foreach ($complianceLevels as $level) {
-        foreach ($categories as $category) {
-            $matrix[$level][$category->name] = 0;
-        }
-    }
-
-    foreach ($assessments as $assessment) {
-    $categoryScores = $assessment->category_scores;
-
-if (is_string($categoryScores)) {
-    $categoryScores = json_decode($categoryScores, true);
-}
-
-if (!is_array($categoryScores)) {
-    continue;
-}
-
-
-    if (!is_array($categoryScores)) {
-        continue;
-    }
-
-    foreach ($categoryScores as $catId => $catData) {
-        if (!isset($categories[$catId])) continue;
-
-        $score = $catData['score'] ?? 0;
-        $level = $this->getComplianceLevel($score);
-
-        $matrix[$level][$categories[$catId]->name]++;
-    }
-}
-
-
-    return [
-        'title' => 'Heatmap: Kategori × Tingkat Kepatuhan',
-        'subtitle' => 'Distribusi tingkat kepatuhan per kategori TPSA',
-        'xAxis' => $categories->pluck('name')->values()->toArray(),
-        'yAxis' => $complianceLevels,
-        'data' => $matrix,
-        'type' => 'category_compliance'
-    ];
-}
-
-
-    /**
-     * HEATMAP 2: Vendor × Compliance
-     * X-axis: Vendors, Y-axis: Compliance Level
-     */
-    private function generateVendorComplianceHeatmap($assessments)
-{
-    $complianceLevels = ['Sangat Memadai', 'Cukup Memadai', 'Kurang Memadai'];
+    // Ambil semua vendor unik
     $vendors = $assessments->pluck('company_name')->unique()->values();
 
     $matrix = [];
-    foreach ($complianceLevels as $level) {
-        foreach ($vendors as $vendor) {
-            $matrix[$level][$vendor] = 0;
+
+    foreach ($vendors as $vendor) {
+        // Ambil assessment terbaru untuk vendor ini
+        $vendorAssessment = $assessments->where('company_name', $vendor)->first();
+
+        if (!$vendorAssessment) continue;
+
+        $categoryScores = $vendorAssessment->category_scores ?? [];
+        $totalScore = $vendorAssessment->total_score ?? 0;
+
+        $matrix[$vendor] = [
+            'total' => [
+                'score' => $totalScore,
+                'color' => Assessment::getComplianceColor($totalScore), // total masih bisa pakai score
+                'level' => Assessment::getComplianceLevel($totalScore),
+            ],
+            'categories' => []
+        ];
+
+        foreach ($categories as $category) {
+            $categoryName = $category->category_level ?? $category->name;
+
+            if (isset($categoryScores[$category->id])) {
+                $indicator = $categoryScores[$category->id]['indicator'] ?? null;
+
+                // Gunakan warna berdasarkan indikator, bukan score
+                $color = $this->getColorByIndicator($indicator);
+
+                $matrix[$vendor]['categories'][$categoryName] = [
+    'score' => $categoryScores[$category->id]['score'] ?? 0,
+    'indicator' => $indicator,
+];
+
+            } else {
+                $matrix[$vendor]['categories'][$categoryName] = [
+                    'score' => 0,
+                    'indicator' => null,
+                    'color' => '#f8f9fa', // default no data
+                ];
+            }
         }
     }
 
-    foreach ($assessments as $assessment) {
-        $vendor = $assessment->company_name;
-        $score  = $assessment->total_score ?? 0;
-        $level  = $this->getComplianceLevel($score);
-
-        $matrix[$level][$vendor]++;
-    }
+    $categoryNames = $categories->map(function($category) {
+        return $category->category_level ?? $category->name;
+    })->unique()->values()->toArray();
 
     return [
-        'title' => 'Heatmap: Vendor × Tingkat Kepatuhan',
-        'subtitle' => 'Profil risiko vendor berdasarkan total score',
-        'xAxis' => $vendors->toArray(),
-        'yAxis' => $complianceLevels,
-        'data' => $matrix,
-        'type' => 'vendor_compliance'
+        'title' => 'Vendor Assessment Heatmap',
+        'categories' => $categoryNames,
+        'vendors' => $vendors->toArray(),
+        'matrix' => $matrix,
     ];
 }
 
-
-    /**
-     * HEATMAP 3: Category × Vendor (Global TPSA)
-     * X-axis: Vendors, Y-axis: Categories
-     */
-    private function generateCategoryVendorHeatmap($assessments)
+/**
+ * Contoh fungsi untuk mapping indikator ke warna.
+ * Sesuaikan dengan kebutuhan indikator perusahaan.
+ */
+private function getColorByIndicator($indicator)
 {
-    $categories = Category::orderBy('id')->get();
-    $vendors = $assessments->pluck('company_name')->unique()->values()->toArray();
+    $indicator = strtolower((string) $indicator);
 
-    $matrix = [];
-    $scores = [];
-
-    foreach ($categories as $category) {
-        foreach ($vendors as $vendor) {
-            $matrix[$category->name][$vendor] = null;
-            $scores[$category->name][$vendor] = null;
-        }
-    }
-
-    foreach ($assessments as $assessment) {
-        $vendor = $assessment->company_name;
-        $categoryScores = $assessment->category_scores;
-
-if (is_string($categoryScores)) {
-    $categoryScores = json_decode($categoryScores, true);
-}
-
-if (!is_array($categoryScores)) {
-    continue;
+    return match ($indicator) {
+        'high'   => '#4AD991', // hijau
+        'medium' => '#FEC53D', // kuning
+        'low'    => '#FF6B6B', // merah
+        default  => '#f8f9fa', // no data
+    };
 }
 
 
-        foreach ($categoryScores as $catId => $catData) {
-            if (!isset($categories[$catId])) continue;
 
-            $score = $catData['score'] ?? null;
-            $categoryName = $categories[$catId]->name;
 
-            $matrix[$categoryName][$vendor] = $score;
-            $scores[$categoryName][$vendor] = $score;
-        }
-    }
-
-    return [
-        'title' => 'Heatmap: Kategori × Vendor (Global TPSA)',
-        'subtitle' => 'Skor per kategori TPSA untuk setiap vendor',
-        'xAxis' => $vendors,
-        'yAxis' => $categories->pluck('name')->values()->toArray(),
-        'data' => $matrix,
-        'scores' => $scores,
-        'type' => 'category_vendor'
-    ];
-}
-
-    /**
-     * Convert score to compliance level
-     */
-    private function getComplianceLevel($score)
+    private function vendorScoresChart($assessments)
     {
-        if ($score >= 80) return 'Sangat Memadai';
-        if ($score >= 50) return 'Cukup Memadai';
-        return 'Kurang Memadai';
-    }
-    
-    /**
-     * Get color based on score
-     */
-    private function getScoreColor($score)
-    {
-        if ($score >= 80) return '#4AD991'; // Hijau
-        if ($score >= 50) return '#FEC53D'; // Kuning
-        return '#FF6B6B'; // Merah
-    }
-    
-    /**
-     * Get color based on count (for heatmap 1 & 2)
-     */
-    private function getCountColor($count, $maxCount)
-    {
-        if ($maxCount == 0) return '#f0f0f0';
+        // Ambil data untuk chart
+        $chartData = [];
         
-        $intensity = min(0.9, $count / max(1, $maxCount));
-        $red = 255;
-        $green = 255 - (int)(150 * $intensity);
-        $blue = 255 - (int)(150 * $intensity);
+        foreach ($assessments as $assessment) {
+            $chartData[] = [
+                'company' => $assessment->company_name,
+                'score' => $assessment->total_score,
+                'color' => Assessment::getComplianceColor($assessment->total_score),
+                'level' => Assessment::getComplianceLevel($assessment->total_score),
+            ];
+        }
         
-        return "rgb($red, $green, $blue)";
+        // Urutkan berdasarkan score (tertinggi ke terendah)
+        usort($chartData, function($a, $b) {
+            return $b['score'] <=> $a['score'];
+        });
+        
+        // Batasi jumlah data yang ditampilkan untuk kejelasan
+        $chartData = array_slice($chartData, 0, 15); // Maksimal 15 vendor
+        
+        return [
+            'labels' => array_column($chartData, 'company'),
+            'scores' => array_column($chartData, 'score'),
+            'colors' => array_column($chartData, 'color'),
+            'levels' => array_column($chartData, 'level'),
+        ];
     }
 }

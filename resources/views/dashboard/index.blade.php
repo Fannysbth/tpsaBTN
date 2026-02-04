@@ -12,8 +12,7 @@
 
     {{-- SUMMARY CARD --}}
     <div class="summary-row">
-        {{-- Total Category --}}
-        <div style="background: #ffff; padding-top: 30px; padding-bottom: 30px; padding-left: 40px; padding-right: 40px; border-radius: 12px; display: flex;justify-content: space-between; align-items: center;">
+        <div style="background: #fff; padding: 30px 40px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; flex-direction: column; align-items: center;">
                 <span class="text2">Total Category</span>
                 <span class="text3">{{ number_format($totalCategories) }}</span>
@@ -21,8 +20,7 @@
             <i class="fa-solid fa-layer-group icon-card" style="color: #8280FF;"></i>
         </div>
 
-        {{-- Total Question --}}
-        <div style="background: #ffff; padding-top: 30px; padding-bottom: 30px; padding-left: 40px; padding-right: 40px; border-radius: 12px; display: flex;justify-content: space-between; align-items: center;">
+        <div style="background: #fff; padding: 30px 40px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; flex-direction: column; align-items: center;">
                <span class="text2">Total Question</span>
                 <span class="text3">{{ number_format($totalQuestions) }}</span>
@@ -30,8 +28,7 @@
              <i class="fa-solid fa-circle-question icon-card" style="color: #FEC53D;"></i>
         </div>
 
-        {{-- Total Assessment --}}
-        <div style="background: #ffff; padding-top: 30px; padding-bottom: 30px; padding-left: 40px; padding-right: 40px; border-radius: 12px; display: flex;justify-content: space-between; align-items: center;">
+        <div style="background: #fff; padding: 30px 40px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; flex-direction: column; align-items: center;">
               <span class="text2">Total Assessment</span>
                 <span class="text3">{{ number_format($totalAssessments) }}</span>
@@ -40,318 +37,212 @@
         </div>
     </div>
 
-    {{-- HEATMAP SECTION --}}
+    {{-- CHART SECTION --}}
     <div style="margin-top: 40px; background: white; border-radius: 12px; padding: 30px;">
         <h2 style="margin-bottom: 20px; color: #333; font-weight: 600;">
-            <i class="fa-solid fa-fire" style="color: #FF6B6B; margin-right: 10px;"></i>
-            TPSA Heatmaps Analysis
+            <i class="fa-solid fa-chart-bar" style="color: #8280FF; margin-right: 10px;"></i>
+            Vendor Performance Chart
         </h2>
-        
-        {{-- Heatmap Tabs --}}
-        <ul class="nav nav-tabs" id="heatmapTabs" role="tablist" style="border-bottom: 2px solid #e9ecef;">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="tab1-tab" data-bs-toggle="tab" data-bs-target="#tab1" type="button" role="tab">
-                    <i class="fa-solid fa-filter"></i> Category × Compliance
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab2-tab" data-bs-toggle="tab" data-bs-target="#tab2" type="button" role="tab">
-                    <i class="fa-solid fa-building"></i> Vendor × Compliance
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab3-tab" data-bs-toggle="tab" data-bs-target="#tab3" type="button" role="tab">
-                    <i class="fa-solid fa-globe"></i> Global TPSA Matrix
-                </button>
-            </li>
-        </ul>
-
-        <div class="tab-content" id="heatmapContent" style="margin-top: 20px;">
-            {{-- TAB 1: Category × Compliance --}}
-            <div class="tab-pane fade show active" id="tab1" role="tabpanel">
-                <div style="margin-bottom: 20px;">
-                    <h4 style="color: #555; font-weight: 600;">{{ $heatmap1['title'] }}</h4>
-                    <p style="color: #777; font-size: 14px;">{{ $heatmap1['subtitle'] }}</p>
+        <p style="color: #777; margin-bottom: 20px;">Diagram batang menunjukkan total score yang diperoleh setiap vendor dalam assessment</p>
+        <div style="height: 400px;">
+            <canvas id="vendorScoresChart"></canvas>
+        </div>
+        {{-- LEGEND --}}
+        <div style="margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 8px; font-size: 13px;">
+            <div style="display: flex; align-items: center; gap: 25px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center;">
+                    <div style="width: 24px; height: 24px; border-radius: 4px; background: #4AD991; margin-right: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;"></div>
+                    <span>High / Sangat Memadai</span>
                 </div>
-                
-                <div style="overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse; min-width: 800px;">
-                        <thead>
-                            <tr>
-                                <th style="padding: 12px; background: #f8f9fa; border: 1px solid #dee2e6; text-align: center; min-width: 200px;">
-                                    Level / Category
-                                </th>
-                                @foreach($heatmap1['xAxis'] as $category)
-                                <th style="padding: 12px; background: #f8f9fa; border: 1px solid #dee2e6; text-align: center; font-size: 12px;">
-                                    {{ $category }}
-                                </th>
-                                @endforeach
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @php
-                                $maxCount = 0;
-                                foreach($heatmap1['data'] as $levelData) {
-                                    $maxCount = max($maxCount, max($levelData));
-                                }
-                            @endphp
-                            
-                            @foreach($heatmap1['yAxis'] as $level)
-                            <tr>
-                                <td style="padding: 12px; background: #f8f9fa; border: 1px solid #dee2e6; font-weight: 600; text-align: center;">
-                                    {{ $level }}
-                                </td>
-                                @foreach($heatmap1['xAxis'] as $category)
-                                    @php
-                                        $count = $heatmap1['data'][$level][$category] ?? 0;
-                                        // Determine color intensity
-                                        $intensity = $maxCount > 0 ? ($count / $maxCount) : 0;
-                                        $red = 255;
-                                        $green = 255 - (int)(200 * $intensity);
-                                        $blue = 255 - (int)(200 * $intensity);
-                                        $color = "rgb($red, $green, $blue)";
-                                        
-                                        // Text color based on intensity
-                                        $textColor = $intensity > 0.5 ? 'white' : '#333';
-                                    @endphp
-                                <td style="padding: 15px; border: 1px solid #dee2e6; text-align: center; background-color: {{ $color }}; color: {{ $textColor }}; font-weight: {{ $intensity > 0.3 ? '600' : '400' }}; cursor: pointer;"
-                                    title="{{ $count }} vendor(s) - {{ $category }} dengan {{ $level }}">
-                                    {{ $count }}
-                                </td>
-                                @endforeach
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                <div style="display: flex; align-items: center;">
+                    <div style="width: 24px; height: 24px; border-radius: 4px; background: #ffc107; margin-right: 8px; display: flex; align-items: center; justify-content: center; color: #333; font-size: 14px;"></div>
+                    <span>Medium / Cukup Memadai</span>
                 </div>
-                
-                <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; font-size: 13px;">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <div style="display: flex; align-items: center;">
-                            <div style="width: 20px; height: 20px; background: rgb(255, 255, 255); border: 1px solid #ddd; margin-right: 8px;"></div>
-                            <span>0 vendors</span>
-                        </div>
-                        <div style="display: flex; align-items: center;">
-                            <div style="width: 20px; height: 20px; background: rgb(255, 200, 200); border: 1px solid #ddd; margin-right: 8px;"></div>
-                            <span>Beberapa vendors</span>
-                        </div>
-                        <div style="display: flex; align-items: center;">
-                            <div style="width: 20px; height: 20px; background: rgb(255, 100, 100); border: 1px solid #ddd; margin-right: 8px;"></div>
-                            <span>Banyak vendors</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {{-- TAB 2: Vendor × Compliance --}}
-            <div class="tab-pane fade" id="tab2" role="tabpanel">
-                <div style="margin-bottom: 20px;">
-                    <h4 style="color: #555; font-weight: 600;">{{ $heatmap2['title'] }}</h4>
-                    <p style="color: #777; font-size: 14px;">{{ $heatmap2['subtitle'] }}</p>
-                </div>
-                
-                <div style="overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse; min-width: 800px;">
-                        <thead>
-                            <tr>
-                                <th style="padding: 12px; background: #f8f9fa; border: 1px solid #dee2e6; text-align: center; min-width: 200px;">
-                                    Level / Vendor
-                                </th>
-                                @foreach($heatmap2['xAxis'] as $vendor)
-                                <th style="padding: 12px; background: #f8f9fa; border: 1px solid #dee2e6; text-align: center; font-size: 12px; max-width: 150px; overflow: hidden; text-overflow: ellipsis;">
-                                    {{ Str::limit($vendor, 20) }}
-                                </th>
-                                @endforeach
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($heatmap2['yAxis'] as $level)
-                            <tr>
-                                <td style="padding: 12px; background: #f8f9fa; border: 1px solid #dee2e6; font-weight: 600; text-align: center;">
-                                    {{ $level }}
-                                </td>
-                                @foreach($heatmap2['xAxis'] as $vendor)
-                                    @php
-                                        $hasVendor = $heatmap2['data'][$level][$vendor] ?? 0;
-                                        $color = $hasVendor ? '#FF6B6B' : '#f8f9fa';
-                                        $textColor = $hasVendor ? 'white' : '#aaa';
-                                    @endphp
-                                <td style="padding: 15px; border: 1px solid #dee2e6; text-align: center; background-color: {{ $color }}; color: {{ $textColor }}; font-weight: 600; cursor: pointer;"
-                                    title="{{ $hasVendor ? "Vendor $vendor - $level" : "Tidak ada data" }}">
-                                    {{ $hasVendor ? '●' : '○' }}
-                                </td>
-                                @endforeach
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            {{-- TAB 3: Category × Vendor (Global TPSA) --}}
-            <div class="tab-pane fade" id="tab3" role="tabpanel">
-                <div style="margin-bottom: 20px;">
-                    <h4 style="color: #555; font-weight: 600;">{{ $heatmap3['title'] }}</h4>
-                    <p style="color: #777; font-size: 14px;">{{ $heatmap3['subtitle'] }}</p>
-                </div>
-                
-                <div style="overflow-x: auto; max-height: 600px;">
-                    <table style="width: 100%; border-collapse: collapse; min-width: 1000px;">
-                        <thead>
-                            <tr>
-                                <th style="padding: 12px; background: #f8f9fa; border: 1px solid #dee2e6; text-align: center; position: sticky; left: 0; z-index: 10; min-width: 200px;">
-                                    Category / Vendor
-                                </th>
-                                @foreach($heatmap3['xAxis'] as $vendor)
-                                <th style="padding: 12px; background: #f8f9fa; border: 1px solid #dee2e6; text-align: center; font-size: 12px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; position: sticky; top: 0; z-index: 5;">
-                                    {{ Str::limit($vendor, 15) }}
-                                </th>
-                                @endforeach
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($heatmap3['yAxis'] as $category)
-                            <tr>
-                                <td style="padding: 12px; background: #f8f9fa; border: 1px solid #dee2e6; font-weight: 600; text-align: left; position: sticky; left: 0; z-index: 2; min-width: 200px;">
-                                    {{ $category }}
-                                </td>
-                                @foreach($heatmap3['xAxis'] as $vendor)
-                                    @php
-                                        $score = $heatmap3['data'][$category][$vendor] ?? 0;
-                                        $color = '#f8f9fa'; // Default
-                                        if ($score > 0) {
-                                            if ($score >= 80) $color = '#4AD991';
-                                            elseif ($score >= 50) $color = '#FEC53D';
-                                            else $color = '#FF6B6B';
-                                        }
-                                        $textColor = $score > 0 ? (($score >= 80 || $score < 50) ? 'white' : '#333') : '#aaa';
-                                    @endphp
-                                <td style="padding: 12px; border: 1px solid #dee2e6; text-align: center; background-color: {{ $color }}; color: {{ $textColor }}; font-weight: 600; cursor: pointer;"
-                                    title="{{ $score > 0 ? "$category - $vendor: Score $score" : 'No data' }}">
-                                    {{ $score > 0 ? $score : '-' }}
-                                </td>
-                                @endforeach
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-                
-                <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; font-size: 13px;">
-                    <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
-                        <div style="display: flex; align-items: center;">
-                            <div style="width: 20px; height: 20px; background: #4AD991; border: 1px solid #ddd; margin-right: 8px;"></div>
-                            <span>Sangat Memadai (≥80)</span>
-                        </div>
-                        <div style="display: flex; align-items: center;">
-                            <div style="width: 20px; height: 20px; background: #FEC53D; border: 1px solid #ddd; margin-right: 8px;"></div>
-                            <span>Cukup Memadai (50-79)</span>
-                        </div>
-                        <div style="display: flex; align-items: center;">
-                            <div style="width: 20px; height: 20px; background: #FF6B6B; border: 1px solid #ddd; margin-right: 8px;"></div>
-                            <span>Kurang Memadai (<50)</span>
-                        </div>
-                        <div style="display: flex; align-items: center;">
-                            <div style="width: 20px; height: 20px; background: #f8f9fa; border: 1px solid #ddd; margin-right: 8px;"></div>
-                            <span>Tidak ada data</span>
-                        </div>
-                    </div>
+                <div style="display: flex; align-items: center;">
+                    <div style="width: 24px; height: 24px; border-radius: 4px; background: #FF6B6B; margin-right: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;"></div>
+                    <span>Low / Kurang Memadai</span>
                 </div>
             </div>
         </div>
     </div>
 
+    {{-- HEATMAP SECTION --}}
+    <div style="margin-top: 40px; background: white; border-radius: 12px; padding: 30px;">
+        <h2 style="margin-bottom: 20px; color: #333; font-weight: 600;">
+            <i class="fa-solid fa-fire" style="color: #FF6B6B; margin-right: 10px;"></i>
+            {{ $vendorHeatmap['title'] }}
+        </h2>
+        
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; min-width: 800px;">
+                <thead>
+                    <tr style="background: #f8f9fa;">
+                        <th style="padding: 12px; border: 1px solid #dee2e6; text-align: left; font-weight: 600; min-width: 120px;">Vendor</th>
+                        @foreach($vendorHeatmap['categories'] as $category)
+                        <th style="padding: 12px; border: 1px solid #dee2e6; text-align: center; font-weight: 600; min-width: 150px;">{{ $category }}</th>
+                        @endforeach
+                    </tr>
+                </thead>
+                <tbody>
+@foreach($vendorHeatmap['vendors'] as $vendor)
+    @php
+        $vendorData = $vendorHeatmap['matrix'][$vendor]['categories'] ?? [];
+    @endphp
+
+    <tr>
+        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: 600;">
+            {{ $vendor }}
+        </td>
+
+        @foreach($vendorHeatmap['categories'] as $category)
+            @php
+                $categoryData = $vendorData[$category] ?? null;
+                $indicator = strtolower($categoryData['indicator'] ?? '');
+
+                switch ($indicator) {
+                    case 'high':
+                        $color = '#4AD991';
+                        $label  = 'High / Sangat Memadai';
+                        $textColor = 'white';
+                        break;
+
+                    case 'medium':
+                        $color = '#FEC53D';
+                        $label  = 'Medium / Cukup Memadai';
+                        $textColor = '#333';
+                        break;
+
+                    case 'low':
+                        $color = '#FF6B6B';
+                        $label  = 'Low / Kurang Memadai';
+                        $textColor = 'white';
+                        break;
+
+                    default:
+                        $color = '#f8f9fa';
+                        $label  = 'Tidak ada data';
+                        $textColor = '#aaa';
+                }
+            @endphp
+
+            <td style="
+                padding: 12px;
+                border: 1px solid #dee2e6;
+                text-align: center;
+                background-color: {{ $color }};
+                color: {{ $textColor }};
+                
+            " title="{{ $category }}: {{ $label }}">
+                <div style="font-size: 18px;">
+
+                @if(!empty($categoryData['score']))
+                    <div style="font-size: 11px; margin-top: 4px;font-weight: 700;">
+                        {{ round($categoryData['score']) }}%
+                    </div>
+                @endif
+                </div>
+            </td>
+        @endforeach
+    </tr>
+@endforeach
+</tbody>
+
+            </table>
+        </div>
+        
+        {{-- LEGEND --}}
+        <div style="margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 8px; font-size: 13px;">
+            <div style="display: flex; align-items: center; gap: 25px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center;">
+                    <div style="width: 24px; height: 24px; border-radius: 4px; background: #4AD991; margin-right: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;">🟢</div>
+                    <span>High / Sangat Memadai</span>
+                </div>
+                <div style="display: flex; align-items: center;">
+                    <div style="width: 24px; height: 24px; border-radius: 4px; background: #ffc107; margin-right: 8px; display: flex; align-items: center; justify-content: center; color: #333; font-size: 14px;">🟡</div>
+                    <span>Medium / Cukup Memadai</span>
+                </div>
+                <div style="display: flex; align-items: center;">
+                    <div style="width: 24px; height: 24px; border-radius: 4px; background: #FF6B6B; margin-right: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;">🔴</div>
+                    <span>Low / Kurang Memadai</span>
+                </div>
+                <div style="display: flex; align-items: center;">
+                    <div style="width: 24px; height: 24px; border-radius: 4px; background: #f8f9fa; border: 1px solid #ddd; margin-right: 8px; display: flex; align-items: center; justify-content: center; color: #aaa; font-size: 14px;">○</div>
+                    <span>Tidak ada data</span>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
-<style>
-/* Heatmap Styles */
-.nav-tabs .nav-link {
-    padding: 12px 24px;
-    font-weight: 600;
-    color: #555;
-    border: none;
-    background: #f8f9fa;
-    margin-right: 5px;
-    border-radius: 8px 8px 0 0;
-}
-
-.nav-tabs .nav-link.active {
-    background: #8280FF;
-    color: white;
-}
-
-.nav-tabs .nav-link:hover {
-    background: #e9ecef;
-    color: #8280FF;
-}
-
-.nav-tabs .nav-link.active:hover {
-    background: #8280FF;
-    color: white;
-}
-
-.tab-content {
-    padding: 20px 0;
-}
-
-table {
-    font-size: 13px;
-}
-
-table th {
-    font-weight: 600;
-    color: #555;
-}
-
-table td:hover {
-    transform: scale(1.05);
-    transition: transform 0.2s;
-    z-index: 1;
-    position: relative;
-}
-
-/* Scrollbar styling */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-}
-</style>
-
+{{-- Chart.js --}}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Tab functionality
-    const triggerTabList = [].slice.call(document.querySelectorAll('#heatmapTabs button'))
-    triggerTabList.forEach(function (triggerEl) {
-        const tabTrigger = new bootstrap.Tab(triggerEl)
-        
-        triggerEl.addEventListener('click', function (event) {
-            event.preventDefault()
-            tabTrigger.show()
-        })
-    })
-    
-    // Add tooltips to heatmap cells
-    document.querySelectorAll('table td[title]').forEach(cell => {
-        cell.addEventListener('mouseenter', function(e) {
-            const title = this.getAttribute('title');
-            // You can enhance this with a custom tooltip if needed
-        });
+    const colors = {!! json_encode($vendorScoresChart['colors'] ?? [], JSON_THROW_ON_ERROR) !!};
+    const labels = {!! json_encode($vendorScoresChart['labels'] ?? [], JSON_THROW_ON_ERROR) !!};
+    const scores = {!! json_encode($vendorScoresChart['scores'] ?? [], JSON_THROW_ON_ERROR) !!};
+    const levels = {!! json_encode($vendorScoresChart['levels'] ?? [], JSON_THROW_ON_ERROR) !!};
+
+    const hoverColors = colors.map(color => color === '#f8f9fa' ? '#e9ecef' : color);
+
+    const chartData = {
+        labels: labels,
+        datasets: [{
+            label: 'Total Score',
+            data: scores,
+            backgroundColor: colors,
+            borderColor: '#ddd',
+            borderWidth: 1,
+            borderRadius: 4,
+            hoverBackgroundColor: hoverColors,
+        }]
+    };
+
+    new Chart(document.getElementById('vendorScoresChart').getContext('2d'), {
+        type: 'bar',
+        data: chartData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.parsed.y;
+                            const level = levels[context.dataIndex] ?? '';
+                            return `Total Score: ${value} (${level})`;
+                        },
+                        title: function(context) { return context[0].label; }
+                    },
+                    backgroundColor: 'rgba(0,0,0,0.7)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    padding: 10
+                }
+            },
+            scales: { y: { beginAtZero: true, max: 100 }, x: { grid: { display: false } } }
+        }
     });
 });
 </script>
+
+<style>
+.assessment-page table {
+    border: 1px solid #dee2e6;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+.assessment-page th { background-color: #f8f9fa; color: #495057; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+.assessment-page td { transition: background-color 0.2s ease; }
+.assessment-page td:hover { filter: brightness(0.95); }
+.assessment-page tr:nth-child(even) { background-color: #fafafa; }
+.assessment-page tr:hover { background-color: #f5f5f5; }
+
+.summary-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px; }
+.text2 { font-size: 14px; color: #6c757d; font-weight: 500; }
+.text3 { font-size: 32px; font-weight: 700; color: #333; margin-top: 5px; }
+.icon-card { font-size: 40px; opacity: 0.8; }
+#vendorScoresChart { width: 100% !important; height: 100% !important; }
+</style>
 
 @endsection

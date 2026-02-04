@@ -165,18 +165,23 @@ public function exportReport(Request $request)
         }
         
         // Simpan assessment
-        $assessment = Assessment::create([
-            'company_name' => $request->company_name,
-            'assessment_date' => now(),
-            'total_score' => 0,
-            'risk_level' => null,
-            'category_scores' => $categoryScores,
-        ]);
-        
-        // Simpan semua jawaban
-        foreach ($answersToCreate as $answerData) {
-            $assessment->answers()->create($answerData);
-        }
+$assessment = Assessment::create([
+    'company_name' => $request->company_name,
+    'assessment_date' => now(),
+    'total_score' => 0,
+    'risk_level' => null,
+    'category_scores' => $categoryScores,
+]);
+
+// Simpan semua jawaban
+foreach ($answersToCreate as $answerData) {
+    $assessment->answers()->create($answerData);
+}
+
+// HITUNG SCORE & CATEGORY SCORE
+$assessment->calculateCategoryScores();
+
+
         
         DB::commit();
         

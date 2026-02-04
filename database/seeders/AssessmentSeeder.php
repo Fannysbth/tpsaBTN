@@ -6,6 +6,7 @@ use Illuminate\Database\Seeder;
 use App\Models\Assessment;
 use App\Models\Answer;
 use App\Models\Question;
+use App\Models\Category;
 use Carbon\Carbon;
 
 class AssessmentSeeder extends Seeder
@@ -15,13 +16,13 @@ class AssessmentSeeder extends Seeder
         Assessment::truncate();
         Answer::truncate();
 
-        $this->createCurrentMonthAssessments();
-        $this->createPreviousMonthsAssessments();
+        $this->seedCurrentMonth();
+        $this->seedPreviousMonths();
 
         $this->command->info('Assessment data seeded successfully!');
     }
 
-    private function createCurrentMonthAssessments()
+    private function seedCurrentMonth()
     {
         $companies = [
             'PT. Maju Bersama',
@@ -31,22 +32,15 @@ class AssessmentSeeder extends Seeder
             'PT. Global Solution',
         ];
 
-        $questions = Question::with('options', 'category')->get();
-
-        foreach ($companies as $index => $company) {
-
-            $assessment = Assessment::create([
-                'company_name' => $company,
-                'assessment_date' => Carbon::now()->subDays($index),
-                'total_score' => 0,
-                'notes' => 'Assessment bulan berjalan',
-            ]);
-
-            $this->generateAnswers($assessment, $questions);
+        foreach ($companies as $i => $company) {
+            $this->createAssessment(
+                $company,
+                Carbon::now()->subDays($i)
+            );
         }
     }
 
-    private function createPreviousMonthsAssessments()
+    private function seedPreviousMonths()
     {
         $companies = [
             'PT. Sinar Jaya',
@@ -56,88 +50,69 @@ class AssessmentSeeder extends Seeder
             'PT. Prima Utama',
         ];
 
-        $questions = Question::with('options', 'category')->get();
-
         for ($month = 1; $month <= 3; $month++) {
-            foreach ($companies as $index => $company) {
-
-                $assessment = Assessment::create([
-                    'company_name' => $company . ' ' . $month,
-                    'assessment_date' => Carbon::now()->subMonths($month)->addDays($index),
-                    'total_score' => 0,
-                    'notes' => 'Assessment bulan sebelumnya',
-                ]);
-
-                $this->generateAnswers($assessment, $questions);
+            foreach ($companies as $i => $company) {
+                $this->createAssessment(
+                    $company . " {$month}",
+                    Carbon::now()->subMonths($month)->addDays($i)
+                );
             }
         }
     }
 
-    private function generateAnswers($assessment, $questions)
+    private function createAssessment(string $company, Carbon $date)
     {
-        $totalScore = 0;
+        $categories = Category::all();
+
+        // === SET INDIKATOR PER CATEGORY ===
         $categoryScores = [];
+        foreach ($categories as $category) {
+            $categoryScores[$category->id] = [
+                'indicator' => collect(['low', 'medium', 'high'])->random()
+            ];
+        }
+
+        $assessment = Assessment::create([
+            'company_name'    => $company,
+            'assessment_date' => $date,
+            'category_scores' => $categoryScores,
+            'total_score'     => 0,
+            'risk_level'      => null,
+            'notes'           => 'Seeder dummy data',
+        ]);
+
+        $questions = Question::with('options')->get();
 
         foreach ($questions as $question) {
-
-            $answerData = $this->generateAnswerByQuestion($question);
+            $answer = $this->generateAnswer($question);
 
             Answer::create([
                 'assessment_id' => $assessment->id,
-                'question_id' => $question->id,
-                'answer_text' => $answerData['answer'],
-                'score' => $answerData['score'],
-                'attachment_path' => $question->attachment_text ? 'dokumen/sample.pdf' : null,
+                'question_id'   => $question->id,
+                'answer_text'   => $answer['answer'],
+                'score'         => $answer['score'],
             ]);
-
-            $totalScore += $answerData['score'];
-
-            // hitung score per kategori
-            $categoryName = $question->category->name;
-            $categoryScores[$categoryName] = ($categoryScores[$categoryName] ?? 0) + $answerData['score'];
         }
 
-        $assessment->update([
-            'total_score' => $totalScore,
-            'risk_level' => $this->calculateRiskLevel($totalScore),
-            'category_scores' => json_encode($categoryScores),
-        ]);
+        // 🔥 BIARKAN MODEL YANG HITUNG
+        $assessment->calculateCategoryScores();
     }
 
-    private function generateAnswerByQuestion($question)
+    private function generateAnswer(Question $question): array
     {
-        // PERTANYAAN PILIHAN
-        if ($question->question_type === 'pilihan') {
-
+        if ($question->question_type === 'pilihan' && $question->options->count()) {
             $option = $question->options->random();
 
             return [
                 'answer' => $option->option_text,
-                'score' => $option->score,
+                'score'  => $option->score,
             ];
         }
 
-        // PERTANYAAN ISIAN
-        $dummyAnswers = [
-            'Nama legal perusahaan' => 'PT Contoh Sejahtera',
-            'Website perusahaan' => 'https://www.contoh.co.id',
-            'Tanggal berdiri perusahaan' => '2018-06-12',
-            'Lokasi perusahaan (kantor utama)' => 'Jakarta',
-            'Struktur organisasi perusahaan' => 'Direktur Utama, IT Manager, Finance',
-            'Penanggung jawab perusahaan (CEO)' => 'Budi Santoso',
-            'Jumlah karyawan IT' => '15',
-        ];
-
+        // isian → tidak dihitung
         return [
-            'answer' => $dummyAnswers[$question->question_text] ?? 'Data tersedia',
-            'score' => 0,
+            'answer' => 'Data tersedia',
+            'score'  => 0,
         ];
-    }
-
-    private function calculateRiskLevel($score)
-    {
-        if ($score >= 7) return 'high';
-        if ($score >= 4) return 'medium';
-        return 'low';
     }
 }

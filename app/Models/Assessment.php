@@ -36,28 +36,6 @@ protected $casts = [
     return $this->hasMany(Answer::class);
 }
 
-    public function calculateTotalScore()
-    {
-        $totalScore = $this->answers()->sum('score');
-        $this->update(['total_score' => $totalScore]);
-        $this->determineRiskLevel();
-        return $totalScore;
-    }
-
-    public function determineRiskLevel()
-    {
-        $totalScore = $this->total_score;
-        $riskLevel = 'low';
-        
-        if ($totalScore >= 70) {
-            $riskLevel = 'high';
-        } elseif ($totalScore >= 40) {
-            $riskLevel = 'medium';
-        }
-        
-        $this->update(['risk_level' => $riskLevel]);
-        return $riskLevel;
-    }
 
     public function calculateRiskLevel()
 {
@@ -99,15 +77,7 @@ public static function getComplianceLevel($score): string
     return 'Kurang Memadai';
 }
 
-/**
- * Get compliance level color
- */
-public static function getComplianceColor($score): string
-{
-    if ($score >= 80) return '#4AD991';
-    if ($score >= 50) return '#FEC53D';
-    return '#FF6B6B';
-}
+
 
 /**
  * Get heatmap data for category × vendor
@@ -162,6 +132,15 @@ public function getInherentRiskAttribute(): string
     return 'low';
 }
 
+// Pastikan method ini ada di model Assessment
+public static function getComplianceColor($score): string
+{
+    if ($score >= 80) return '#4AD991'; // Hijau
+    if ($score >= 50) return '#FEC53D'; // Kuning
+    if ($score > 0) return '#FF6B6B';   // Merah
+    return '#f8f9fa';                   // Abu-abu (tidak ada data)
+}
+
 
 // App\Models\Assessment.php
 public static function scoreToRiskLabel(float $score): string
@@ -175,90 +154,81 @@ public static function scoreToRiskLabel(float $score): string
 }
 
 
-public function calculateCategoryScores()
+public function calculateCategoryScores(): void
 {
     $categories = Category::with(['questions.options'])->get();
     $categoryScores = [];
-    
+
     foreach ($categories as $category) {
+
+        // indikator yg dipilih perusahaan
         $indicator = $this->category_scores[$category->id]['indicator'] ?? null;
-        
+
         if (!$indicator) {
-            $categoryScores[$category->id] = [
-                'score' => 0,
-                'indicator' => null,
-            ];
             continue;
         }
-        
-        // Filter pertanyaan berdasarkan indikator
-        $filteredQuestions = $category->questions->filter(function($question) use ($indicator) {
+
+        $actualScore = 0;
+        $maxScore    = 0;
+
+        foreach ($category->questions as $question) {
+
+            // === FILTER PERTANYAAN SESUAI INDIKATOR ===
             $indicators = $question->indicator;
 
-// kalau string, bersihin dulu
-if (is_string($indicators)) {
-    $indicators = trim($indicators, "\""); // hapus """
-    $decoded = json_decode($indicators, true);
+            if (is_string($indicators)) {
+                $decoded = json_decode($indicators, true);
+                $indicators = json_last_error() === JSON_ERROR_NONE
+                    ? $decoded
+                    : array_map('trim', explode(',', $indicators));
+            }
 
-    if (json_last_error() === JSON_ERROR_NONE) {
-        $indicators = $decoded;
-    } else {
-        $indicators = array_map('trim', explode(',', $indicators));
-    }
-}
+            if (!in_array($indicator, $indicators ?? [])) {
+                continue;
+            }
 
-            
-            return in_array($indicator, $indicators ?? []);
-        });
-        
-        $totalMaxScore = 0;
-        $totalActualScore = 0;
-        
-        foreach ($filteredQuestions as $question) {
-    $answer = $this->answers->firstWhere('question_id', $question->id);
+            // === HANYA HITUNG PERTANYAAN PILIHAN ===
+            if ($question->question_type !== 'pilihan') {
+                continue;
+            }
 
-    // Max score: dari option, kalau tidak ada pakai nilai dari pertanyaan
-    if ($question->options->isNotEmpty()) {
-        $maxScore = $question->options->max('score');
-    } else {
-        $maxScore = $question->max_score ?? 0; // atau field lain yg kamu punya
-    }
+            // ambil jawaban user
+            $answer = $this->answers->firstWhere('question_id', $question->id);
 
-    $totalMaxScore += $maxScore;
+            // score maksimum dari option
+            $questionMaxScore = $question->options->max('score') ?? 0;
 
-    // Actual score: walau 0 tetap dihitung
-    if ($answer) {
-        $totalActualScore += $answer->score ?? 0;
-    }
-}
+            $maxScore += $questionMaxScore;
+            $actualScore += $answer->score ?? 0;
+        }
 
-        
-        // Hitung persentase (jika ada max score)
-        $percentage = $totalMaxScore > 0 
-            ? round(($totalActualScore / $totalMaxScore) * 100, 2)
+        $percentage = $maxScore > 0
+            ? round(($actualScore / $maxScore) * 100, 2)
             : 0;
-        
+
         $categoryScores[$category->id] = [
-            'score' => $percentage,
-            'indicator' => $indicator,
-            'actual_score' => $totalActualScore,
-            'max_score' => $totalMaxScore
+            'indicator'     => $indicator,
+            'actual_score'  => $actualScore,
+            'max_score'     => $maxScore,
+            'score'         => $percentage,
         ];
     }
-    
+
+    // === SIMPAN CATEGORY SCORE ===
     $this->category_scores = $categoryScores;
-    
-    // Hitung total score sebagai rata-rata semua kategori
+
+    // === TOTAL SCORE = RATA-RATA CATEGORY ===
     $totalCategories = count($categoryScores);
-    if ($totalCategories > 0) {
-        $sumScores = array_sum(array_column($categoryScores, 'score'));
-        $this->total_score = round($sumScores / $totalCategories, 2);
-    } else {
-        $this->total_score = 0;
-    }
-    
+    $this->total_score = $totalCategories > 0
+        ? round(array_sum(array_column($categoryScores, 'score')) / $totalCategories, 2)
+        : 0;
+
+    // === RISK LEVEL ===
     $this->calculateRiskLevel();
+
     $this->save();
 }
+
+
 // App/Models/Assessment.php
 }
