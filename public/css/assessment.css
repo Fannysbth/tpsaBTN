@@ -157,9 +157,8 @@
     margin-bottom: 24px;
 }
 .assessment-page {
-    padding: 24px 32px;
-    background: #F5F6FA;
-    min-height: 100vh;
+    padding: 20px;
+    overflow-x: hidden;
 }
 .app-header {
     display: flex;

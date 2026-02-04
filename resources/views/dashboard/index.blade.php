@@ -9,27 +9,48 @@
 </x-header>
 
 <div class="assessment-page">
+    <form method="GET" class="filter-bar">
+        <div class="filter-group">
+            <select name="month" onchange="this.form.submit()">
+                <option value="all">All Month</option>
+                @foreach(range(1,12) as $m)
+                    <option value="{{ $m }}" {{ $selectedMonth == $m ? 'selected' : '' }}>
+                        {{ \Carbon\Carbon::create()->month($m)->format('F') }}
+                    </option>
+                @endforeach
+            </select>
+
+            <select name="year" onchange="this.form.submit()">
+                <option value="all">All Year</option>
+                @foreach(range(now()->year, now()->year - 5) as $y)
+                    <option value="{{ $y }}" {{ $selectedYear == $y ? 'selected' : '' }}>
+                        {{ $y }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+    </form>
 
     {{-- SUMMARY CARD --}}
     <div class="summary-row">
-        <div style="background: #fff; padding: 30px 40px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; flex-direction: column; align-items: center;">
-                <span class="text2">Total Category</span>
-                <span class="text3">{{ number_format($totalCategories) }}</span>
+        <div class="summary-card">
+            <div class="card-content">
+                <span class="text2">Not Yet Scored</span>
+                <span class="text3">{{ number_format($totalWithoutRiskLevel) }}</span>
             </div>
             <i class="fa-solid fa-layer-group icon-card" style="color: #8280FF;"></i>
         </div>
 
-        <div style="background: #fff; padding: 30px 40px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; flex-direction: column; align-items: center;">
-               <span class="text2">Total Question</span>
-                <span class="text3">{{ number_format($totalQuestions) }}</span>
+        <div class="summary-card">
+            <div class="card-content">
+               <span class="text2">Scored</span>
+                <span class="text3">{{ number_format($totalWithRiskLevel) }}</span>
             </div>
              <i class="fa-solid fa-circle-question icon-card" style="color: #FEC53D;"></i>
         </div>
 
-        <div style="background: #fff; padding: 30px 40px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; flex-direction: column; align-items: center;">
+        <div class="summary-card">
+            <div class="card-content">
               <span class="text2">Total Assessment</span>
                 <span class="text3">{{ number_format($totalAssessments) }}</span>
             </div>
@@ -37,136 +58,118 @@
         </div>
     </div>
 
-    {{-- CHART SECTION --}}
-    <div style="margin-top: 40px; background: white; border-radius: 12px; padding: 30px;">
-        <h2 style="margin-bottom: 20px; color: #333; font-weight: 600;">
-            <i class="fa-solid fa-chart-bar" style="color: #8280FF; margin-right: 10px;"></i>
-            Vendor Performance Chart
-        </h2>
-        <p style="color: #777; margin-bottom: 20px;">Diagram batang menunjukkan total score yang diperoleh setiap vendor dalam assessment</p>
-        <div style="height: 400px;">
-            <canvas id="vendorScoresChart"></canvas>
-        </div>
-        {{-- LEGEND --}}
-        <div style="margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 8px; font-size: 13px;">
-            <div style="display: flex; align-items: center; gap: 25px; flex-wrap: wrap;">
-                <div style="display: flex; align-items: center;">
-                    <div style="width: 24px; height: 24px; border-radius: 4px; background: #4AD991; margin-right: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;"></div>
-                    <span>High / Sangat Memadai</span>
+    {{-- CHART CONTAINER --}}
+    <div class="chart-container">
+        {{-- VENDOR PERFORMANCE CHART --}}
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3>
+                    <i class="fa-solid fa-chart-bar" style="color: #8280FF; margin-right: 10px;"></i>
+                    Vendor Performance Chart
+                </h3>
+                <p>Diagram batang menunjukkan total score yang diperoleh setiap vendor dalam assessment</p>
+            </div>
+            <div class="chart-body">
+                <canvas id="vendorScoresChart"></canvas>
+            </div>
+            <div class="chart-legend">
+                <div class="legend-item">
+                    <div class="legend-color high"></div>
+                    <span>Sangat Memadai</span>
                 </div>
-                <div style="display: flex; align-items: center;">
-                    <div style="width: 24px; height: 24px; border-radius: 4px; background: #ffc107; margin-right: 8px; display: flex; align-items: center; justify-content: center; color: #333; font-size: 14px;"></div>
-                    <span>Medium / Cukup Memadai</span>
+                <div class="legend-item">
+                    <div class="legend-color medium"></div>
+                    <span>Cukup Memadai</span>
                 </div>
-                <div style="display: flex; align-items: center;">
-                    <div style="width: 24px; height: 24px; border-radius: 4px; background: #FF6B6B; margin-right: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;"></div>
-                    <span>Low / Kurang Memadai</span>
+                <div class="legend-item">
+                    <div class="legend-color low"></div>
+                    <span>Kurang Memadai</span>
                 </div>
             </div>
         </div>
-    </div>
 
-    {{-- HEATMAP SECTION --}}
-    <div style="margin-top: 40px; background: white; border-radius: 12px; padding: 30px;">
-        <h2 style="margin-bottom: 20px; color: #333; font-weight: 600;">
-            <i class="fa-solid fa-fire" style="color: #FF6B6B; margin-right: 10px;"></i>
-            {{ $vendorHeatmap['title'] }}
-        </h2>
-        
-        <div style="overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; min-width: 800px;">
-                <thead>
-                    <tr style="background: #f8f9fa;">
-                        <th style="padding: 12px; border: 1px solid #dee2e6; text-align: left; font-weight: 600; min-width: 120px;">Vendor</th>
-                        @foreach($vendorHeatmap['categories'] as $category)
-                        <th style="padding: 12px; border: 1px solid #dee2e6; text-align: center; font-weight: 600; min-width: 150px;">{{ $category }}</th>
+        {{-- HEATMAP SECTION --}}
+        <div class="heatmap-card">
+            <div class="chart-header">
+                <h3>
+                    <i class="fa-solid fa-fire" style="color: #FF6B6B; margin-right: 10px;"></i>
+                    {{ $vendorHeatmap['title'] }}
+                </h3>
+            </div>
+            
+            <div class="heatmap-body">
+                <table class="heatmap-table">
+                    <thead>
+                        <tr>
+                            <th>Vendor</th>
+                            @foreach($vendorHeatmap['categories'] as $category)
+                                <th>{{ $category }}</th>
+                            @endforeach
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($vendorHeatmap['vendors'] as $vendor)
+                            @php
+                                $vendorData = $vendorHeatmap['matrix'][$vendor]['categories'] ?? [];
+                            @endphp
+                            <tr>
+                                <td class="vendor-name">{{ $vendor }}</td>
+                                @foreach($vendorHeatmap['categories'] as $category)
+                                    @php
+                                        $categoryData = $vendorData[$category] ?? null;
+                                        $indicator = strtolower($categoryData['indicator'] ?? '');
+                                        
+                                        switch ($indicator) {
+                                            case 'high':
+                                                $color = '#4AD991';
+                                                $label = 'High / Sangat Memadai';
+                                                $textColor = 'white';
+                                                break;
+                                            case 'medium':
+                                                $color = '#FEC53D';
+                                                $label = 'Medium / Cukup Memadai';
+                                                $textColor = '#333';
+                                                break;
+                                            case 'low':
+                                                $color = '#FF6B6B';
+                                                $label = 'Low / Kurang Memadai';
+                                                $textColor = 'white';
+                                                break;
+                                            default:
+                                                $color = '#f8f9fa';
+                                                $label = 'Tidak ada data';
+                                                $textColor = '#aaa';
+                                        }
+                                    @endphp
+                                    <td class="heatmap-cell" 
+                                        style="background-color: {{ $color }}; color: {{ $textColor }};"
+                                        title="{{ $category }}: {{ $label }}">
+                                        @if(!empty($categoryData['score']))
+                                            {{ round($categoryData['score']) }}%
+                                        @endif
+                                    </td>
+                                @endforeach
+                            </tr>
                         @endforeach
-                    </tr>
-                </thead>
-                <tbody>
-@foreach($vendorHeatmap['vendors'] as $vendor)
-    @php
-        $vendorData = $vendorHeatmap['matrix'][$vendor]['categories'] ?? [];
-    @endphp
-
-    <tr>
-        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: 600;">
-            {{ $vendor }}
-        </td>
-
-        @foreach($vendorHeatmap['categories'] as $category)
-            @php
-                $categoryData = $vendorData[$category] ?? null;
-                $indicator = strtolower($categoryData['indicator'] ?? '');
-
-                switch ($indicator) {
-                    case 'high':
-                        $color = '#4AD991';
-                        $label  = 'High / Sangat Memadai';
-                        $textColor = 'white';
-                        break;
-
-                    case 'medium':
-                        $color = '#FEC53D';
-                        $label  = 'Medium / Cukup Memadai';
-                        $textColor = '#333';
-                        break;
-
-                    case 'low':
-                        $color = '#FF6B6B';
-                        $label  = 'Low / Kurang Memadai';
-                        $textColor = 'white';
-                        break;
-
-                    default:
-                        $color = '#f8f9fa';
-                        $label  = 'Tidak ada data';
-                        $textColor = '#aaa';
-                }
-            @endphp
-
-            <td style="
-                padding: 12px;
-                border: 1px solid #dee2e6;
-                text-align: center;
-                background-color: {{ $color }};
-                color: {{ $textColor }};
-                
-            " title="{{ $category }}: {{ $label }}">
-                <div style="font-size: 18px;">
-
-                @if(!empty($categoryData['score']))
-                    <div style="font-size: 11px; margin-top: 4px;font-weight: 700;">
-                        {{ round($categoryData['score']) }}%
-                    </div>
-                @endif
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="chart-legend">
+                <div class="legend-item">
+                    <div class="legend-color high"></div>
+                    <span>High </span>
                 </div>
-            </td>
-        @endforeach
-    </tr>
-@endforeach
-</tbody>
-
-            </table>
-        </div>
-        
-        {{-- LEGEND --}}
-        <div style="margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 8px; font-size: 13px;">
-            <div style="display: flex; align-items: center; gap: 25px; flex-wrap: wrap;">
-                <div style="display: flex; align-items: center;">
-                    <div style="width: 24px; height: 24px; border-radius: 4px; background: #4AD991; margin-right: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;">🟢</div>
-                    <span>High / Sangat Memadai</span>
+                <div class="legend-item">
+                    <div class="legend-color medium"></div>
+                    <span>Medium </span>
                 </div>
-                <div style="display: flex; align-items: center;">
-                    <div style="width: 24px; height: 24px; border-radius: 4px; background: #ffc107; margin-right: 8px; display: flex; align-items: center; justify-content: center; color: #333; font-size: 14px;">🟡</div>
-                    <span>Medium / Cukup Memadai</span>
+                <div class="legend-item">
+                    <div class="legend-color low"></div>
+                    <span>Low </span>
                 </div>
-                <div style="display: flex; align-items: center;">
-                    <div style="width: 24px; height: 24px; border-radius: 4px; background: #FF6B6B; margin-right: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;">🔴</div>
-                    <span>Low / Kurang Memadai</span>
-                </div>
-                <div style="display: flex; align-items: center;">
-                    <div style="width: 24px; height: 24px; border-radius: 4px; background: #f8f9fa; border: 1px solid #ddd; margin-right: 8px; display: flex; align-items: center; justify-content: center; color: #aaa; font-size: 14px;">○</div>
+                <div class="legend-item">
+                    <div class="legend-color no-data"></div>
                     <span>Tidak ada data</span>
                 </div>
             </div>
@@ -211,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         label: function(context) {
                             const value = context.parsed.y;
                             const level = levels[context.dataIndex] ?? '';
-                            return `Total Score: ${value} (${level})`;
+                            return `Total Score: ${value}% (${level})`;
                         },
                         title: function(context) { return context[0].label; }
                     },
@@ -221,28 +224,297 @@ document.addEventListener('DOMContentLoaded', function() {
                     padding: 10
                 }
             },
-            scales: { y: { beginAtZero: true, max: 100 }, x: { grid: { display: false } } }
+            scales: { 
+                y: { 
+                    beginAtZero: true, 
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }, 
+                x: {
+                    ticks: {
+                        font: { 
+                            size: 10 
+                        }
+                    },
+                    grid: { 
+                        display: false 
+                    }
+                } 
+            }
         }
     });
 });
 </script>
 
 <style>
-.assessment-page table {
-    border: 1px solid #dee2e6;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-}
-.assessment-page th { background-color: #f8f9fa; color: #495057; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
-.assessment-page td { transition: background-color 0.2s ease; }
-.assessment-page td:hover { filter: brightness(0.95); }
-.assessment-page tr:nth-child(even) { background-color: #fafafa; }
-.assessment-page tr:hover { background-color: #f5f5f5; }
 
-.summary-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px; }
-.text2 { font-size: 14px; color: #6c757d; font-weight: 500; }
-.text3 { font-size: 32px; font-weight: 700; color: #333; margin-top: 5px; }
-.icon-card { font-size: 40px; opacity: 0.8; }
-#vendorScoresChart { width: 100% !important; height: 100% !important; }
+
+/* FILTER STYLES */
+.filter-bar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 4px;
+}
+
+.filter-group {
+    display: flex;
+    gap: 12px;
+}
+
+.filter-group select {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    font-size: 14px;
+    background-color: white;
+    cursor: pointer;
+    min-width: 150px;
+}
+
+.filter-group select:focus {
+    outline: none;
+    border-color: #8280FF;
+}
+
+/* SUMMARY CARDS */
+.summary-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.summary-card {
+    background: #fff;
+    padding: 24px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.summary-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.text2 {
+    font-size: 14px;
+    color: #6c757d;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.text3 {
+    font-size: 32px;
+    font-weight: 700;
+    color: #333;
+}
+
+.icon-card {
+    font-size: 40px;
+    opacity: 0.8;
+}
+
+/* CHART CONTAINER */
+.chart-container {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 24px;
+    align-items: stretch;
+}
+
+.chart-card, .heatmap-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.chart-header {
+    margin-bottom: 20px;
+}
+
+.chart-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #333;
+    display: flex;
+    align-items: center;
+}
+
+.chart-header p {
+    color: #777;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.chart-body {
+    flex: 1;
+    min-height: 200px;
+    position: relative;
+}
+
+.heatmap-body {
+    flex: 1;
+    overflow: auto;
+}
+
+/* HEATMAP TABLE */
+.heatmap-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    min-width: 600px;
+}
+
+.heatmap-table thead {
+    background: #f8f9fa;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.heatmap-table th {
+    padding: 8px 6px;
+    border: 1px solid #dee2e6;
+    text-align: center;
+    font-weight: 600;
+    color: #495057;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+
+    white-space: normal;     /* ⬅️ BOLEH TURUN BARIS */
+    word-break: break-word; /* ⬅️ POTONG KATA PANJANG */
+    line-height: 1.3;
+
+    max-width: 90px;         /* ⬅️ PAKSA TIDAK MELEBAR */
+    font-size: 11px;         /* ⬅️ LEBIH KECIL */
+}
+
+
+.heatmap-table td {
+    padding: 10px 8px;
+    border: 1px solid #dee2e6;
+    text-align: center;
+    transition: filter 0.2s ease;
+}
+
+.heatmap-table td:hover {
+    filter: brightness(0.95);
+}
+
+.vendor-name {
+    font-weight: 600;
+    background-color: #f8f9fa;
+    position: sticky;
+    left: 0;
+    z-index: 5;
+}
+
+.heatmap-cell {
+    min-width: 60px;
+    font-weight: 700;
+    font-size: 11px;
+}
+
+/* LEGEND STYLES */
+.chart-legend {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    font-size: 12px;
+}
+
+.chart-legend {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.legend-color.high {
+    background: #4AD991;
+}
+
+.legend-color.medium {
+    background: #FEC53D;
+}
+
+.legend-color.low {
+    background: #FF6B6B;
+}
+
+.legend-color.no-data {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+}
+
+/* RESPONSIVE DESIGN */
+@media (max-width: 1200px) {
+    .chart-container {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+    
+    .chart-body {
+        height: 300px;
+    }
+}
+
+@media (max-width: 768px) {
+    .summary-row {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .chart-container {
+        gap: 16px;
+    }
+    
+    .chart-card, .heatmap-card {
+        padding: 16px;
+    }
+    
+    .filter-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .filter-group select {
+        width: 100%;
+    }
+}
 </style>
 
 @endsection

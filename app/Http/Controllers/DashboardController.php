@@ -10,55 +10,71 @@ use Illuminate\Http\Request;
 class DashboardController extends Controller
 {
     public function index(Request $request)
-    {
-        $month = $request->input('month');
-        $year = $request->input('year');
+{
+    $month = $request->filled('month') ? $request->month : now()->month;
+$year  = $request->filled('year') ? $request->year : now()->year;
 
-        $query = Assessment::orderBy('assessment_date', 'desc');
 
-        if ($month) $query->whereMonth('assessment_date', $month);
-        if ($year) $query->whereYear('assessment_date', $year);
+    $query = Assessment::orderBy('assessment_date', 'desc');
 
-        $assessments = $query->get();
-        
-        // Data untuk card summary
-        $totalCategories = Category::count();
-        $totalQuestions = Question::count();
-        $totalAssessmentsCount = Assessment::count();
-
-        return view('dashboard.index', [
-            'assessments' => $assessments,
-            'totalCategories' => $totalCategories,
-            'totalQuestions' => $totalQuestions,
-            'totalAssessments' => $totalAssessmentsCount,
-            'vendorHeatmap' => $this->vendorHeatmap($assessments),
-            'vendorScoresChart' => $this->vendorScoresChart($assessments),
-        ]);
+    if ($month !== 'all') {
+        $query->whereMonth('assessment_date', $month);
     }
+
+    if ($year !== 'all') {
+        $query->whereYear('assessment_date', $year);
+    }
+
+    $assessments = $query->get();
+
+    $withRiskLevel = $assessments->whereNotNull('risk_level')->count();
+$withoutRiskLevel = $assessments->whereNull('risk_level')->count();
+
+return view('dashboard.index', [
+    'assessments'            => $assessments,
+    'totalWithRiskLevel'     => $withRiskLevel,
+    'totalWithoutRiskLevel'  => $withoutRiskLevel,
+    'totalAssessments'       => $assessments->count(),
+    'vendorHeatmap'          => $this->vendorHeatmap($assessments),
+    'vendorScoresChart'      => $this->vendorScoresChart($assessments),
+    'selectedMonth'          => $month,
+    'selectedYear'           => $year,
+]);
+
+}
+
+
 
     private function vendorHeatmap($assessments)
 {
-    // Ambil semua kategori
     $categories = Category::orderBy('id')->get();
 
-    // Ambil semua vendor unik
-    $vendors = $assessments->pluck('company_name')->unique()->values();
+    $vendors = [];
+    $matrix  = [];
 
-    $matrix = [];
+    foreach ($assessments->pluck('company_name')->unique() as $vendor) {
 
-    foreach ($vendors as $vendor) {
-        // Ambil assessment terbaru untuk vendor ini
-        $vendorAssessment = $assessments->where('company_name', $vendor)->first();
+        // ambil assessment terbaru per vendor
+        $vendorAssessment = $assessments
+            ->where('company_name', $vendor)
+            ->sortByDesc('assessment_date')
+            ->first();
 
-        if (!$vendorAssessment) continue;
+        // ❌ skip kalau belum ada risk level
+        if (!$vendorAssessment || empty($vendorAssessment->risk_level)) {
+            continue;
+        }
+
+        // ✅ vendor valid
+        $vendors[] = $vendor;
 
         $categoryScores = $vendorAssessment->category_scores ?? [];
-        $totalScore = $vendorAssessment->total_score ?? 0;
+        $totalScore     = $vendorAssessment->total_score ?? 0;
 
         $matrix[$vendor] = [
             'total' => [
                 'score' => $totalScore,
-                'color' => Assessment::getComplianceColor($totalScore), // total masih bisa pakai score
+                'color' => Assessment::getComplianceColor($totalScore),
                 'level' => Assessment::getComplianceLevel($totalScore),
             ],
             'categories' => []
@@ -68,37 +84,33 @@ class DashboardController extends Controller
             $categoryName = $category->category_level ?? $category->name;
 
             if (isset($categoryScores[$category->id])) {
-                $indicator = $categoryScores[$category->id]['indicator'] ?? null;
-
-                // Gunakan warna berdasarkan indikator, bukan score
-                $color = $this->getColorByIndicator($indicator);
-
                 $matrix[$vendor]['categories'][$categoryName] = [
-    'score' => $categoryScores[$category->id]['score'] ?? 0,
-    'indicator' => $indicator,
-];
-
+                    'score'     => $categoryScores[$category->id]['score'] ?? 0,
+                    'indicator' => $categoryScores[$category->id]['indicator'] ?? null,
+                ];
             } else {
                 $matrix[$vendor]['categories'][$categoryName] = [
-                    'score' => 0,
+                    'score'     => 0,
                     'indicator' => null,
-                    'color' => '#f8f9fa', // default no data
                 ];
             }
         }
     }
 
-    $categoryNames = $categories->map(function($category) {
-        return $category->category_level ?? $category->name;
-    })->unique()->values()->toArray();
+    $categoryNames = $categories
+        ->map(fn ($c) => $c->category_level ?? $c->name)
+        ->unique()
+        ->values()
+        ->toArray();
 
     return [
-        'title' => 'Vendor Assessment Heatmap',
+        'title'      => 'Vendor Assessment Heatmap',
         'categories' => $categoryNames,
-        'vendors' => $vendors->toArray(),
-        'matrix' => $matrix,
+        'vendors'    => $vendors,
+        'matrix'     => $matrix,
     ];
 }
+
 
 /**
  * Contoh fungsi untuk mapping indikator ke warna.
@@ -125,13 +137,19 @@ private function getColorByIndicator($indicator)
         $chartData = [];
         
         foreach ($assessments as $assessment) {
-            $chartData[] = [
-                'company' => $assessment->company_name,
-                'score' => $assessment->total_score,
-                'color' => Assessment::getComplianceColor($assessment->total_score),
-                'level' => Assessment::getComplianceLevel($assessment->total_score),
-            ];
-        }
+
+    if (empty($assessment->risk_level)) {
+        continue; // skip kalau belum ada risk level
+    }
+
+    $chartData[] = [
+        'company' => $assessment->company_name,
+        'score'   => $assessment->total_score,
+        'color'   => Assessment::getComplianceColor($assessment->total_score),
+        'level'   => Assessment::getComplianceLevel($assessment->total_score),
+    ];
+}
+
         
         // Urutkan berdasarkan score (tertinggi ke terendah)
         usort($chartData, function($a, $b) {

@@ -178,9 +178,6 @@ foreach ($answersToCreate as $answerData) {
     $assessment->answers()->create($answerData);
 }
 
-// HITUNG SCORE & CATEGORY SCORE
-$assessment->calculateCategoryScores();
-
 
         
         DB::commit();
