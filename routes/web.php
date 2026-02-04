@@ -59,3 +59,5 @@ Route::get('/questionnaire/export', [QuestionnaireController::class, 'export'])-
 Route::post('/questionnaire/import/preview', [QuestionnaireImportController::class, 'preview'])->name('questionnaire.import.preview');
 Route::post('/questionnaire/import', [QuestionnaireImportController::class, 'import'])->name('questionnaire.import');
 
+Route::post('/dashboard/export-ppt', [DashboardController::class, 'exportPpt'])
+    ->name('dashboard.export.ppt');

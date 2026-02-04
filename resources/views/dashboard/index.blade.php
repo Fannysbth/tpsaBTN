@@ -33,7 +33,7 @@
 
     {{-- SUMMARY CARD --}}
     <div class="summary-row">
-        <div class="summary-card">
+        <div class="summary-card export-card">
             <div class="card-content">
                 <span class="text2">Not Yet Scored</span>
                 <span class="text3">{{ number_format($totalWithoutRiskLevel) }}</span>
@@ -41,7 +41,7 @@
             <i class="fa-solid fa-layer-group icon-card" style="color: #8280FF;"></i>
         </div>
 
-        <div class="summary-card">
+        <div class="summary-card export-card">
             <div class="card-content">
                <span class="text2">Scored</span>
                 <span class="text3">{{ number_format($totalWithRiskLevel) }}</span>
@@ -49,7 +49,7 @@
              <i class="fa-solid fa-circle-question icon-card" style="color: #FEC53D;"></i>
         </div>
 
-        <div class="summary-card">
+        <div class="summary-card export-card">
             <div class="card-content">
               <span class="text2">Total Assessment</span>
                 <span class="text3">{{ number_format($totalAssessments) }}</span>
@@ -61,7 +61,7 @@
     {{-- CHART CONTAINER --}}
     <div class="chart-container">
         {{-- VENDOR PERFORMANCE CHART --}}
-        <div class="chart-card">
+        <div class="chart-card export-card">
             <div class="chart-header">
                 <h3>
                     <i class="fa-solid fa-chart-bar" style="color: #8280FF; margin-right: 10px;"></i>
@@ -89,7 +89,7 @@
         </div>
 
         {{-- HEATMAP SECTION --}}
-        <div class="heatmap-card">
+        <div class="heatmap-card export-card">
             <div class="chart-header">
                 <h3>
                     <i class="fa-solid fa-fire" style="color: #FF6B6B; margin-right: 10px;"></i>
@@ -175,7 +175,45 @@
             </div>
         </div>
     </div>
+    <button id="exportPpt" class="btn btn-primary">
+    Export Dashboard to PPT
+</button>
+
 </div>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<script>
+document.getElementById('exportPpt').addEventListener('click', async () => {
+
+    const cards = document.querySelectorAll('.export-card');
+    const images = [];
+
+    for (const card of cards) {
+        const canvas = await html2canvas(card, {
+            scale: 2,
+            useCORS: true
+        });
+        images.push(canvas.toDataURL('image/png'));
+    }
+
+    await fetch("{{ route('dashboard.export.ppt') }}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN": "{{ csrf_token() }}"
+        },
+        body: JSON.stringify({ images })
+    })
+    .then(res => res.blob())
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "dashboard-report.pptx";
+        a.click();
+    });
+});
+</script>
 
 {{-- Chart.js --}}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

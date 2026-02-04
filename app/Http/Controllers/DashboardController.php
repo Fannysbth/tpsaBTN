@@ -6,6 +6,10 @@ use App\Models\Category;
 use App\Models\Question;
 use App\Models\Assessment;
 use Illuminate\Http\Request;
+use PhpOffice\PhpPresentation\PhpPresentation;
+use PhpOffice\PhpPresentation\IOFactory;
+use PhpOffice\PhpPresentation\Style\Alignment;
+use Illuminate\Support\Str;
 
 class DashboardController extends Controller
 {
@@ -44,7 +48,39 @@ return view('dashboard.index', [
 }
 
 
+public function exportPpt(Request $request)
+{
+    $ppt = new PhpPresentation();
 
+    foreach ($request->images as $image) {
+
+        $slide = $ppt->createSlide();
+
+        $imageData = base64_decode(
+            preg_replace('#^data:image/\w+;base64,#i', '', $image)
+        );
+
+        $file = storage_path('app/tmp_' . Str::random(8) . '.png');
+        file_put_contents($file, $imageData);
+
+        $slide->createDrawingShape()
+            ->setName('Dashboard Card')
+            ->setPath($file)
+            ->setWidth(900)
+            ->setHeight(500)
+            ->setOffsetX(30)
+            ->setOffsetY(30);
+
+        unlink($file);
+    }
+
+    $fileName = 'dashboard-report.pptx';
+    $path = storage_path("app/$fileName");
+
+    IOFactory::createWriter($ppt, 'PowerPoint2007')->save($path);
+
+    return response()->download($path)->deleteFileAfterSend(true);
+}
     private function vendorHeatmap($assessments)
 {
     $categories = Category::orderBy('id')->get();
