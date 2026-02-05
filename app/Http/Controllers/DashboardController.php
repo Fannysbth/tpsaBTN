@@ -8,8 +8,12 @@ use App\Models\Assessment;
 use Illuminate\Http\Request;
 use PhpOffice\PhpPresentation\PhpPresentation;
 use PhpOffice\PhpPresentation\IOFactory;
+use PhpOffice\PhpPresentation\DocumentLayout;
 use PhpOffice\PhpPresentation\Style\Alignment;
-use Illuminate\Support\Str;
+use PhpOffice\PhpPresentation\Style\Color;
+use PhpOffice\PhpPresentation\Style\Fill;
+use Carbon\Carbon;
+
 
 class DashboardController extends Controller
 {
@@ -48,39 +52,153 @@ return view('dashboard.index', [
 }
 
 
+
 public function exportPpt(Request $request)
 {
+    $request->validate([
+        'images' => 'required|array|size:5',
+        'month'  => 'required|string',
+        'year'   => 'required|string',
+    ]);
+
     $ppt = new PhpPresentation();
 
-    foreach ($request->images as $image) {
+    // =========================
+    // SLIDE SIZE 16:9 NORMAL
+    // =========================
+    $ppt->getLayout()->setDocumentLayout(
+        DocumentLayout::LAYOUT_SCREEN_16X9
+    );
 
-        $slide = $ppt->createSlide();
+    // remove default slide
+    $ppt->removeSlideByIndex(0);
+    $slide = $ppt->createSlide();
 
+    /**
+     * =========================
+     * HEADER TITLE (TEXT ONLY)
+     * =========================
+     */
+    $title = $slide->createRichTextShape()
+        ->setOffsetX(40)
+        ->setOffsetY(20)
+        ->setWidth(860)
+        ->setHeight(40);
+
+    $title->getActiveParagraph()->getAlignment()
+        ->setHorizontal(Alignment::HORIZONTAL_LEFT);
+
+    $titleRun = $title->createTextRun(
+        'Dashboard TPSA Security Questionnaire'
+    );
+
+    $titleRun->getFont()
+        ->setBold(true)
+        ->setSize(22)
+        ->setColor(new Color('FF000000')); // hitam
+
+    /**
+     * =========================
+     * PERIOD TEXT
+     * =========================
+     */
+    $period = $slide->createRichTextShape()
+        ->setOffsetX(40)
+        ->setOffsetY(65)
+        ->setWidth(860)
+        ->setHeight(30);
+
+    // mapping month
+$monthText = 'All Period';
+
+if (is_numeric($request->month)) {
+    $monthText = Carbon::create()
+        ->month((int) $request->month)
+        ->locale('id')
+        ->translatedFormat('F');
+}
+
+$periodRun = $period->createTextRun(
+    $monthText . ' ' . $request->year
+);
+
+
+    $periodRun->getFont()
+        ->setSize(14)
+        ->setColor(new Color('FF555555'));
+
+    /**
+     * =========================
+     * CARD POSITIONS (PIXEL)
+     * =========================
+     */
+    $positions = [
+        // 3 summary cards (atas)
+        ['x' => 40,  'y' => 100, 'w' => 260],
+        ['x' => 330, 'y' => 100, 'w' => 260],
+        ['x' => 620, 'y' => 100, 'w' => 260],
+
+        // 2 chart cards (bawah)
+        ['x' => 40,  'y' => 200, 'w' => 320],
+        ['x' => 500, 'y' => 200, 'w' => 420],
+    ];
+
+    /**
+     * =========================
+     * INSERT CARD PNGs
+     * =========================
+     */
+    $tempImages = [];
+
+    foreach ($request->images as $i => $base64) {
+
+        if (!isset($positions[$i])) {
+            continue;
+        }
+
+        // decode base64 image
         $imageData = base64_decode(
-            preg_replace('#^data:image/\w+;base64,#i', '', $image)
+            preg_replace('#^data:image/\w+;base64,#i', '', $base64)
         );
 
-        $file = storage_path('app/tmp_' . Str::random(8) . '.png');
-        file_put_contents($file, $imageData);
+        // save temp file
+        $tmpPath = storage_path('app/card_' . uniqid() . '.png');
+        file_put_contents($tmpPath, $imageData);
+        $tempImages[] = $tmpPath;
 
+        // insert image to slide
         $slide->createDrawingShape()
-            ->setName('Dashboard Card')
-            ->setPath($file)
-            ->setWidth(900)
-            ->setHeight(500)
-            ->setOffsetX(30)
-            ->setOffsetY(30);
-
-        unlink($file);
+            ->setPath($tmpPath)
+            ->setOffsetX($positions[$i]['x'])
+            ->setOffsetY($positions[$i]['y'])
+            ->setWidth($positions[$i]['w'])
+            ->setResizeProportional(true);
     }
 
-    $fileName = 'dashboard-report.pptx';
-    $path = storage_path("app/$fileName");
+    /**
+     * =========================
+     * SAVE & DOWNLOAD
+     * =========================
+     */
+    $pptPath = storage_path('app/dashboard-report.pptx');
 
-    IOFactory::createWriter($ppt, 'PowerPoint2007')->save($path);
+    IOFactory::createWriter($ppt, 'PowerPoint2007')
+        ->save($pptPath);
 
-    return response()->download($path)->deleteFileAfterSend(true);
+    // cleanup temp images
+    foreach ($tempImages as $img) {
+        if (file_exists($img)) {
+            unlink($img);
+        }
+    }
+
+    return response()
+        ->download($pptPath)
+        ->deleteFileAfterSend(true);
 }
+
+
+
     private function vendorHeatmap($assessments)
 {
     $categories = Category::orderBy('id')->get();
@@ -147,22 +265,6 @@ public function exportPpt(Request $request)
     ];
 }
 
-
-/**
- * Contoh fungsi untuk mapping indikator ke warna.
- * Sesuaikan dengan kebutuhan indikator perusahaan.
- */
-private function getColorByIndicator($indicator)
-{
-    $indicator = strtolower((string) $indicator);
-
-    return match ($indicator) {
-        'high'   => '#4AD991', // hijau
-        'medium' => '#FEC53D', // kuning
-        'low'    => '#FF6B6B', // merah
-        default  => '#f8f9fa', // no data
-    };
-}
 
 
 

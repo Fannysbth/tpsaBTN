@@ -9,6 +9,10 @@
 </x-header>
 
 <div class="assessment-page">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+    <button id="exportPpt" class="btn btn-primary">
+    Export Dashboard to PPT
+</button>
     <form method="GET" class="filter-bar">
         <div class="filter-group">
             <select name="month" onchange="this.form.submit()">
@@ -30,10 +34,11 @@
             </select>
         </div>
     </form>
+    </div>    
 
     {{-- SUMMARY CARD --}}
     <div class="summary-row">
-        <div class="summary-card export-card">
+        <div  id="card-summary-1" class="summary-card export-card">
             <div class="card-content">
                 <span class="text2">Not Yet Scored</span>
                 <span class="text3">{{ number_format($totalWithoutRiskLevel) }}</span>
@@ -41,7 +46,7 @@
             <i class="fa-solid fa-layer-group icon-card" style="color: #8280FF;"></i>
         </div>
 
-        <div class="summary-card export-card">
+        <div  id="card-summary-2" class="summary-card export-card">
             <div class="card-content">
                <span class="text2">Scored</span>
                 <span class="text3">{{ number_format($totalWithRiskLevel) }}</span>
@@ -49,7 +54,7 @@
              <i class="fa-solid fa-circle-question icon-card" style="color: #FEC53D;"></i>
         </div>
 
-        <div class="summary-card export-card">
+        <div  id="card-summary-3" class="summary-card export-card">
             <div class="card-content">
               <span class="text2">Total Assessment</span>
                 <span class="text3">{{ number_format($totalAssessments) }}</span>
@@ -61,14 +66,13 @@
     {{-- CHART CONTAINER --}}
     <div class="chart-container">
         {{-- VENDOR PERFORMANCE CHART --}}
-        <div class="chart-card export-card">
+        <div id="card-chart-1" class="chart-card export-card">
             <div class="chart-header">
                 <h3>
                     <i class="fa-solid fa-chart-bar" style="color: #8280FF; margin-right: 10px;"></i>
                     Vendor Performance Chart
                 </h3>
-                <p>Diagram batang menunjukkan total score yang diperoleh setiap vendor dalam assessment</p>
-            </div>
+                        </div>
             <div class="chart-body">
                 <canvas id="vendorScoresChart"></canvas>
             </div>
@@ -79,7 +83,7 @@
                 </div>
                 <div class="legend-item">
                     <div class="legend-color medium"></div>
-                    <span>Cukup Memadai</span>
+                    <span>Memadai</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color low"></div>
@@ -89,7 +93,7 @@
         </div>
 
         {{-- HEATMAP SECTION --}}
-        <div class="heatmap-card export-card">
+        <div id="card-chart-2" class="heatmap-card export-card">
             <div class="chart-header">
                 <h3>
                     <i class="fa-solid fa-fire" style="color: #FF6B6B; margin-right: 10px;"></i>
@@ -175,9 +179,7 @@
             </div>
         </div>
     </div>
-    <button id="exportPpt" class="btn btn-primary">
-    Export Dashboard to PPT
-</button>
+    
 
 </div>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -185,31 +187,47 @@
 <script>
 document.getElementById('exportPpt').addEventListener('click', async () => {
 
-    const cards = document.querySelectorAll('.export-card');
+    const cardIds = [
+        'card-summary-1',
+        'card-summary-2',
+        'card-summary-3',
+        'card-chart-1',
+        'card-chart-2'
+    ];
+
     const images = [];
 
-    for (const card of cards) {
-        const canvas = await html2canvas(card, {
+    for (const id of cardIds) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+
+        const canvas = await html2canvas(el, {
             scale: 2,
-            useCORS: true
+            useCORS: true,
+            backgroundColor: '#ffffff'
         });
+
         images.push(canvas.toDataURL('image/png'));
     }
 
-    await fetch("{{ route('dashboard.export.ppt') }}", {
+    fetch("{{ route('dashboard.export.ppt') }}", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
             "X-CSRF-TOKEN": "{{ csrf_token() }}"
         },
-        body: JSON.stringify({ images })
+       body: JSON.stringify({
+        images,
+        month: "{{ $selectedMonth }}",
+        year: "{{ $selectedYear }}"
+    })
     })
     .then(res => res.blob())
     .then(blob => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
         a.href = url;
-        a.download = "dashboard-report.pptx";
+        a.download = 'dashboard-report.pptx';
         a.click();
     });
 });
@@ -295,7 +313,6 @@ document.addEventListener('DOMContentLoaded', function() {
 .filter-bar {
     display: flex;
     justify-content: flex-end;
-    margin-bottom: 4px;
 }
 
 .filter-group {
@@ -323,12 +340,12 @@ document.addEventListener('DOMContentLoaded', function() {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 20px;
-    margin-bottom: 30px;
+    margin-bottom: 10px;
 }
 
 .summary-card {
     background: #fff;
-    padding: 24px;
+    padding: 15px;
     border-radius: 12px;
     display: flex;
     justify-content: space-between;
@@ -369,7 +386,7 @@ document.addEventListener('DOMContentLoaded', function() {
 /* CHART CONTAINER */
 .chart-container {
     display: grid;
-    grid-template-columns: 1fr 1.2fr;
+    grid-template-columns: 1fr 1.1fr;
     gap: 24px;
     align-items: stretch;
 }
@@ -418,7 +435,7 @@ document.addEventListener('DOMContentLoaded', function() {
     width: 100%;
     border-collapse: collapse;
     font-size: 12px;
-    min-width: 600px;
+    min-width: 500px;
 }
 
 .heatmap-table thead {
@@ -482,7 +499,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .chart-legend {
     display: flex;
-    gap: 24px;
+    gap: 14px;
     flex-wrap: wrap;
 }
 

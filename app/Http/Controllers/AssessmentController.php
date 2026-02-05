@@ -410,7 +410,7 @@ private function getLevelsByIndicator($indicator)
 
         Excel::import(new AssessmentImport($assessment), $request->file('excel_file'));
 
-        $assessment->calculateTotalScore();
+        
         $assessment->calculateCategoryScores();
 
         return redirect()->back()->with('success', 'Data berhasil diimport');
