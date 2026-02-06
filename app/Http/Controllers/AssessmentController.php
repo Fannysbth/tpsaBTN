@@ -348,23 +348,6 @@ public function destroy(Assessment $assessment)
 }
 
 
-
-
-private function getLevelsByIndicator($indicator)
-{
-    switch ($indicator) {
-        case 'low':
-            return ['low'];
-        case 'medium':
-            return ['low','medium'];
-        case 'high':
-            return ['low','medium','high'];
-        default:
-            return [];
-    }
-}
-
-
     public function show(Assessment $assessment)
 {
     $assessment->load('answers.question.category', 'answers.question.options');
@@ -391,7 +374,9 @@ private function getLevelsByIndicator($indicator)
 
     public function export(Assessment $assessment)
     {
-        return Excel::download(new AssessmentExport($assessment), 'assessment_'.$assessment->id.'.xlsx');
+        return Excel::download(
+            new AssessmentExport($assessment), 
+            'assessment_'.$assessment->company_name.'.xlsx');
     }
 
     public function previewExport(Assessment $assessment)
@@ -414,23 +399,5 @@ private function getLevelsByIndicator($indicator)
         $assessment->calculateCategoryScores();
 
         return redirect()->back()->with('success', 'Data berhasil diimport');
-    }
-
-    public function sendEmail(Request $request, Assessment $assessment)
-    {
-        $request->validate([
-            'email' => 'required|email',
-            'subject' => 'required|string',
-            'message' => 'required|string'
-        ]);
-
-        $export = new AssessmentExport($assessment);
-        $filePath = 'exports/assessment_'.$assessment->id.'_'.time().'.xlsx';
-        Excel::store($export, $filePath);
-
-        Mail::to($request->email)
-            ->send(new AssessmentReport($assessment, $filePath, $request->subject, $request->message));
-
-        return response()->json(['success' => true]);
     }
 }

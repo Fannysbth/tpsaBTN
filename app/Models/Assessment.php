@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Log;
 
 class Assessment extends Model
 {
@@ -156,6 +155,7 @@ public static function scoreToRiskLabel(float $score): string
 
 public function calculateCategoryScores(): void
 {
+    $this->loadMissing('answers');
     $categories = Category::with(['questions.options'])->get();
     $categoryScores = [];
 

@@ -22,90 +22,6 @@ class QuestionnaireController extends Controller
     return Excel::download(new QuestionnaireExport, 'questionnaire.xlsx');
 }
 
-public function importPreview(Request $request)
-{
-    $request->validate([
-        'file' => 'required|mimes:xlsx,xls'
-    ]);
-
-    try {
-        $import = new QuestionnaireImport();
-        Excel::import($import, $request->file('file'));
-
-        return view('questionnaire.preview-import', [
-            'importData'      => $import->importData ?? [],
-            'importErrors'    => $import->errors ?? [],   // 🔥 GANTI
-            'totalQuestions' => count($import->importData ?? []),
-            'categories'     => Category::all(),          // 🔥 TAMBAH
-        ]);
-
-    } catch (\Exception $e) {
-        return redirect()->back()
-            ->with('error', 'Error reading file: ' . $e->getMessage());
-    }
-}
-public function import(Request $request)
-{
-    $validated = $request->validate([
-        'questions' => 'required|array',
-        'questions.*.category_id' => 'required|exists:categories,id',
-        'questions.*.question_text' => 'required|string',
-        'questions.*.question_type' => 'required|in:isian,pilihan',
-    ]);
-
-    $importedCount = 0;
-
-    DB::beginTransaction();
-    try {
-
-        foreach ($request->questions as $q) {
-
-            // skip kalau toggle dimatikan
-            if (!isset($q['import'])) {
-                continue;
-            }
-
-            $question = Question::create([
-                'category_id'   => $q['category_id'],
-                'question_text' => $q['question_text'],
-                'sub'           => $q['sub'] ?? null,
-                'clue'          => $q['clue'] ?? null,
-                'indicator'     => json_encode($q['indicator'] ?? []),
-                'question_type' => $q['question_type'],
-                'order'         => 0,
-            ]);
-
-            // 🔥 SIMPAN OPTIONS
-            if ($q['question_type'] === 'pilihan' && !empty($q['options'])) {
-                foreach ($q['options'] as $opt) {
-                    if (!empty($opt['text'])) {
-                        QuestionOption::create([
-                            'question_id' => $question->id,
-                            'option_text'=> $opt['text'],
-                            'score'      => $opt['score'] ?? 0,
-                        ]);
-                    }
-                }
-            }
-
-            $importedCount++;
-        }
-
-        DB::commit();
-
-        return redirect()
-            ->route('questionnaire.index')
-            ->with('success', "Berhasil mengimport {$importedCount} pertanyaan");
-
-    } catch (\Throwable $e) {
-        DB::rollBack();
-        Log::error($e);
-
-        return back()
-            ->with('error', 'Gagal import data');
-    }
-}
-
     public function index()
 {
     $categories = Category::with(['questions' => function ($query) {
@@ -122,9 +38,7 @@ public function import(Request $request)
         'moreCategories'
     ));
 }
-
-
-    // Menampilkan semua pertanyaan untuk diedit
+   // Menampilkan semua pertanyaan untuk diedit
     public function editAll()
     {
         $categories = Category::with(['questions.options'])->get();
@@ -149,9 +63,9 @@ public function import(Request $request)
                 // Skip if question text is empty
                 $text = trim($data['question_text'] ?? '');
 
-if ($text === '') {
-    continue;
-}
+        if ($text === '') {
+            continue;
+        }
 
 
                 $isNew = str_starts_with($id, 'new_');
@@ -193,10 +107,10 @@ if ($text === '') {
                     foreach ($data['options'] ?? [] as $optionId => $optionData) {
                         if (!empty($optionData['text'])) {
                            QuestionOption::create([
-    'question_id' => $question->id,
-    'option_text' => $optionData['text'],
-    'score' => $optionData['score'] ?? 0,
-]);
+        'question_id' => $question->id,
+        'option_text' => $optionData['text'],
+        'score' => $optionData['score'] ?? 0,
+        ]);
 
                         }
                     }

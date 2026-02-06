@@ -4,6 +4,27 @@
 
 {{-- HEADER COMPONENT --}}
 <x-header title="Questionnaire">
+    {{-- ERROR PREVIEW IMPORT --}}
+@if ($errors->any())
+    <div class="alert alert-danger" style="margin:20px">
+        <ul style="margin:0">
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+
+    {{-- buka modal lagi kalau error --}}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const modal = new bootstrap.Modal(
+                document.getElementById('importModal')
+            );
+            modal.show();
+        });
+    </script>
+@endif
+
     <i class="fa-solid fa-building-columns icon-header"></i>
     <i class="fa-solid fa-shield-halved icon-header"></i>
 </x-header>

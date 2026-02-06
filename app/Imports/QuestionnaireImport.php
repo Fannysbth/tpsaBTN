@@ -12,6 +12,8 @@ class QuestionnaireImport implements ToCollection
     public array $importData = [];
     public array $errors = [];
 
+    protected array $excelQuestions = [];
+
     public function collection(Collection $rows)
     {
         if ($rows->count() < 3) {
@@ -19,177 +21,201 @@ class QuestionnaireImport implements ToCollection
             return;
         }
 
+        /**
+         * ==============================
+         * 1. PARSE EXCEL
+         * ==============================
+         */
         $currentCategory = null;
-        $lastQuestionIndex = null;
-        $lastQuestionText = null;
+        $currentIndex = null;
 
-        /**
-         * ==============================
-         * DETEKSI KOLOM INDIKATOR
-         * ==============================
-         */
-        $indicatorColumnIndexes = [];
-        $headerRow = $rows[1]; // baris ke-2
+        foreach ($rows as $i => $row) {
 
-        foreach ($headerRow as $colIndex => $val) {
-            $v = strtolower(trim((string) $val));
-            if (in_array($v, ['high', 'medium', 'low', 'umum'])) {
-                $indicatorColumnIndexes[$colIndex] = $v;
-            }
-        }
+            if ($i < 2) continue; // skip 2 header row
+            $excelRow = $i + 1;
 
-        /**
-         * ==============================
-         * LOOP DATA
-         * ==============================
-         */
-        foreach ($rows as $rowIndex => $row) {
-
-            // skip header
-            if ($rowIndex < 2) continue;
-
-            $excelRow = $rowIndex + 1;
-            $lastColumnIndex = count($row) - 1;
-
-            $sub        = trim((string) ($row[0] ?? '')); // A
-            $no         = trim((string) ($row[1] ?? '')); // B
-            $deskripsi  = trim((string) ($row[2] ?? '')); // C
-            $pilihan    = trim((string) ($row[4] ?? '')); // E
-            $scoreRaw   = trim((string) ($row[5] ?? '')); // F
-            $attachment = trim((string) ($row[$lastColumnIndex] ?? ''));
-
-            $attachment = ($attachment === '' || $attachment === '-') ? null : $attachment;
-            $score = ($scoreRaw === '' || !is_numeric($scoreRaw)) ? null : (int) $scoreRaw;
-
-            // skip baris kosong
-            if ($sub === '' && $no === '' && $deskripsi === '' && $pilihan === '') {
-                continue;
-            }
+            $A = $row[0] ?? null; // Sub / Category
+            $B = $row[1] ?? null; // No
+            $C = $row[2] ?? null; // Question text
+            $D = $row[3] ?? null; // :
+            $E = $row[4] ?? null; // Option / Clue
+            $F = $row[5] ?? null; // Score
+            $lastCol = count($row) - 1;
+            $attachment = $row[$lastCol] ?? null;
 
             /**
-             * ==============================
              * CATEGORY HEADER
-             * ==============================
-             */
-            if ($sub !== '' && $no === '' && $deskripsi === '') {
-                $category = Category::where('name', $sub)->first();
-
-                if (!$category) {
-                    $this->errors[] = "Baris {$excelRow}: Category '{$sub}' tidak ditemukan.";
-                    $currentCategory = null;
-                    continue;
-                }
-
-                $currentCategory = $category;
-                continue;
-            }
-
-            if (!$currentCategory) {
-                $this->errors[] = "Baris {$excelRow}: Pertanyaan tanpa category.";
-                continue;
-            }
-
-            /**
-             * ==============================
-             * PERTANYAAN BARU
-             * ==============================
-             */
-            if ($no !== '' && is_numeric($no)) {
-
-                if ($deskripsi === '') {
-                    $this->errors[] = "Baris {$excelRow}: Deskripsi pertanyaan kosong.";
-                    continue;
-                }
-
-                $lastQuestionText = $deskripsi;
-
-                /**
-                 * ==============================
-                 * INDIKATOR
-                 * ==============================
-                 */
-                $indicator = [];
-
-                foreach ($indicatorColumnIndexes as $colIndex => $level) {
-                    if (
-                        isset($row[$colIndex]) &&
-                        strtoupper(trim((string) $row[$colIndex])) === 'V'
-                    ) {
-                        $indicator[] = $level;
-                    }
-                }
-
-                /**
-                 * ==============================
-                 * TIPE PERTANYAAN
-                 * ==============================
-                 */
-                $isPilihan = $pilihan !== '';
-
-                /**
-                 * ==============================
-                 * CEK DUPLIKAT
-                 * ==============================
-                 */
-                $exists = Question::whereRaw(
-                    'LOWER(TRIM(question_text)) = ?',
-                    [strtolower(trim($lastQuestionText))]
-                )->exists();
-
-                if ($exists) {
-                    $lastQuestionIndex = null;
-                    continue;
-                }
-
-                /**
-                 * ==============================
-                 * SIMPAN DATA
-                 * ==============================
-                 */
-                $this->importData[] = [
-                    'row_number'      => $excelRow,
-                    'category_id'     => $currentCategory->id,
-                    'category_name'   => $currentCategory->name,
-                    'sub'             => $sub ?: null,
-                    'no'              => (int) $no,
-                    'question_text'   => $lastQuestionText,
-                    'clue'            => $isPilihan ? null : ($pilihan ?: null),
-                    'indicator'       => $indicator,
-                    'attachment_text' => $attachment,
-                    'question_type'   => $isPilihan ? 'pilihan' : 'isian',
-                    'options'         => $isPilihan
-                        ? [[
-                            'text'  => $pilihan,
-                            'score' => $score,
-                        ]]
-                        : [],
-                    'is_new' => true,
-                ];
-
-                $lastQuestionIndex = array_key_last($this->importData);
-                continue;
-            }
-
-            /**
-             * ==============================
-             * OPTION LANJUTAN
-             * ==============================
+             * A != '' && B,C,D kosong
              */
             if (
-                $lastQuestionIndex !== null &&
-                $deskripsi === '' &&
-                $pilihan !== '' &&
-                $this->importData[$lastQuestionIndex]['question_type'] === 'pilihan'
+                is_string($A) && trim($A) !== '' &&
+                $B === null && $C === null && $D === null
             ) {
-                $this->importData[$lastQuestionIndex]['options'][] = [
-                    'text'  => $pilihan,
-                    'score' => $score,
+                $currentCategory = Category::where('name', trim($A))->first();
+
+                if (!$currentCategory) {
+                    $this->errors[] = "Baris {$excelRow}: Category '{$A}' tidak ditemukan.";
+                }
+                continue;
+            }
+
+            if (!$currentCategory) continue;
+
+            /**
+             * QUESTION UTAMA
+             * B numeric && D === ':'
+             */
+            if (is_numeric($B) && trim((string)$D) === ':') {
+
+                $question = [
+                    'category_id'   => $currentCategory->id,
+                    'category_name' => $currentCategory->name,
+                    'sub'           => trim((string)$A) ?: null,
+                    'no'            => (int)$B,
+                    'question_text' => trim((string)$C),
+                    'question_type' => 'isian', // default isian dulu
+                    'indicator'     => [], 
+                    'attachment'    => ($attachment === '-' ? null : $attachment),
+                    'options'       => [],
+                ];
+
+                $this->excelQuestions[] = $question;
+                $currentIndex = array_key_last($this->excelQuestions);
+                continue;
+            }
+
+            /**
+             * OPTION LANJUTAN
+             * B dan C kosong, E ada → baris tambahan opsi
+             */
+            if (
+                $currentIndex !== null &&
+                $B === null && $C === null &&
+                trim((string)$E) !== ''
+            ) {
+                $this->excelQuestions[$currentIndex]['options'][] = [
+                    'text'  => trim((string)$E),
+                    'score' => is_numeric($F) ? (int)$F : null,
+                ];
+
+                // kalau ada opsi tambahan → ubah question_type jadi pilihan
+                $this->excelQuestions[$currentIndex]['question_type'] = 'pilihan';
+            }
+        }
+
+        if (empty($this->excelQuestions)) {
+            $this->errors[] = '0 question terbaca dari Excel.';
+            return;
+        }
+
+        /**
+         * ==============================
+         * 2. LOAD DATABASE QUESTIONS
+         * ==============================
+         */
+        $dbQuestions = Question::with('options')
+            ->get()
+            ->map(function ($q) {
+                return [
+                    'id'            => $q->id,
+                    'category_id'   => $q->category_id,
+                    'sub'           => $q->sub,
+                    'question_text' => $q->question_text,
+                    'question_type' => $q->question_type,
+                    'indicator'     => json_decode($q->indicator, true) ?? [],
+                    'attachment'    => $q->attachment_text,
+                    'options'       => $q->options->map(fn ($o) => [
+                        'text'  => $o->option_text,
+                        'score' => $o->score,
+                    ])->toArray(),
+                ];
+            })
+            ->keyBy(fn ($q) => $this->signature($q))
+            ->toArray();
+
+        /**
+         * ==============================
+         * 3. DIFF ENGINE (FILTERED)
+         * ==============================
+         */
+        $preview = [];
+
+        // ADD & UPDATE
+        foreach ($this->excelQuestions as $q) {
+            $sig = $this->signature($q);
+
+            // sama persis → SKIP
+            if (isset($dbQuestions[$sig])) {
+                continue;
+            }
+
+            // cari kemungkinan UPDATE (question_text sama)
+            $matchedDb = collect($dbQuestions)->first(fn ($dbQ) =>
+                trim($dbQ['question_text']) === trim($q['question_text']) &&
+                $dbQ['category_id'] === $q['category_id']
+            );
+
+            if ($matchedDb) {
+                $preview[] = $q + [
+                    'id'     => $matchedDb['id'],
+                    'action' => 'update',
+                ];
+            } else {
+                $preview[] = $q + [
+                    'action' => 'add',
                 ];
             }
         }
 
-        if (empty($this->importData)) {
-            $this->errors[] = 'Tidak ada data yang bisa diimport.';
+        // DELETE (yang benar-benar hilang)
+        $excelSignatures = collect($this->excelQuestions)
+            ->map(fn ($q) => $this->signature($q))
+            ->toArray();
+
+        foreach ($dbQuestions as $sig => $dbQ) {
+            if (!in_array($sig, $excelSignatures, true)) {
+                $preview[] = [
+                    'id'            => $dbQ['id'],
+                    'category_id'   => $dbQ['category_id'],
+                    'question_text' => $dbQ['question_text'],
+                    'action'        => 'delete',
+                ];
+            }
         }
+
+        /**
+         * ==============================
+         * 4. FINAL PREVIEW
+         * ==============================
+         */
+        $this->importData = $preview;
+
+        if (empty($this->importData)) {
+            $this->errors[] = 'Tidak ada perubahan data.';
+        }
+    }
+
+    /**
+     * ==============================
+     * QUESTION SIGNATURE
+     * ==============================
+     */
+    protected function signature(array $q): string
+    {
+        return md5(json_encode([
+            'category_id'   => $q['category_id'],
+            'sub'           => trim((string)($q['sub'] ?? '')),
+            'question_text' => trim((string)$q['question_text']),
+            'question_type' => $q['question_type'] ?? null,
+            'indicator'     => $q['indicator'] ?? [],
+            'attachment'    => $q['attachment'] ?? null,
+            'options'       => collect($q['options'] ?? [])
+                ->map(fn ($o) => [
+                    trim((string)$o['text']),
+                    $o['score'],
+                ])
+                ->values()
+                ->toArray(),
+        ], JSON_UNESCAPED_UNICODE));
     }
 }

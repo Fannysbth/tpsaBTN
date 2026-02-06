@@ -142,11 +142,15 @@ class AssessmentImport implements ToCollection
             // SIMPAN DATA
             // =========================
             $this->assessment->answers()->delete();
-            Answer::insert($newAnswers);
+Answer::insert($newAnswers);
 
-            // Hitung ulang total & risk level
-            $this->assessment->calculateCategoryScores();
-            $this->assessment->refresh();
+// 🔥 TAMBAHKAN BARIS INI
+$this->assessment->load('answers.question.options');
+
+// Hitung ulang total & risk level
+$this->assessment->calculateCategoryScores();
+$this->assessment->refresh();
+
 
             DB::commit();
 

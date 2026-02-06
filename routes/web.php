@@ -13,21 +13,49 @@ Route::get('/assessment/{id}/edit', [AssessmentController::class, 'edit'])->name
 Route::put('/assessment/{id}', [AssessmentController::class, 'update'])->name('assessment.update');
 // Questionnaire Routes
 Route::prefix('questionnaire')->group(function () {
-    Route::get('/', [QuestionnaireController::class, 'index'])->name('questionnaire.index');
-    Route::post('/categories', [QuestionnaireController::class, 'storeCategory'])->name('questionnaire.categories.store');
-    Route::post('/questions', [QuestionnaireController::class, 'storeQuestion'])->name('questionnaire.questions.store');
-    Route::put('/questions/{question}', [QuestionnaireController::class, 'updateQuestion'])->name('questionnaire.questions.update');
-    Route::delete('/questions/{question}', [QuestionnaireController::class, 'destroyQuestion'])->name('questionnaire.questions.destroy');
-    Route::post('/questions/order', [QuestionnaireController::class, 'updateOrder'])->name('questionnaire.questions.order');
-    // Page edit all questions
-Route::get('/questionnaire/edit-all', [QuestionnaireController::class, 'editAll'])
-    ->name('questionnaire.editAll');
 
-// Update all questions sekaligus
-Route::put('/questionnaire/update-all', [QuestionnaireController::class, 'updateAll'])
-    ->name('questionnaire.updateAll');
+    Route::get('/', [QuestionnaireController::class, 'index'])
+        ->name('questionnaire.index');
 
+    // =============================
+    // IMPORT (WAJIB DI SINI)
+    // =============================
+    Route::post('/import/preview',
+        [QuestionnaireImportController::class, 'preview']
+    )->name('questionnaire.import.preview');
+
+    Route::post('/import',
+        [QuestionnaireImportController::class, 'import']
+    )->name('questionnaire.import');
+
+    // =============================
+    // QUESTIONS
+    // =============================
+    Route::post('/categories', [QuestionnaireController::class, 'storeCategory'])
+        ->name('questionnaire.categories.store');
+
+    Route::post('/questions', [QuestionnaireController::class, 'storeQuestion'])
+        ->name('questionnaire.questions.store');
+
+    Route::put('/questions/{question}', [QuestionnaireController::class, 'updateQuestion'])
+        ->name('questionnaire.questions.update');
+
+    Route::delete('/questions/{question}', [QuestionnaireController::class, 'destroyQuestion'])
+        ->name('questionnaire.questions.destroy');
+
+    Route::post('/questions/order', [QuestionnaireController::class, 'updateOrder'])
+        ->name('questionnaire.questions.order');
+
+    // =============================
+    // EDIT ALL (FIX URL!)
+    // =============================
+    Route::get('/edit-all', [QuestionnaireController::class, 'editAll'])
+        ->name('questionnaire.editAll');
+
+    Route::put('/update-all', [QuestionnaireController::class, 'updateAll'])
+        ->name('questionnaire.updateAll');
 });
+
 
 Route::get('/categories/create', [CategoryController::class, 'create'])->name('categories.create');
 Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
@@ -50,14 +78,12 @@ Route::prefix('assessment')->group(function () {
     Route::get('/{assessment}/export', [AssessmentController::class, 'export'])->name('assessment.export');
     Route::get('/{assessment}/preview', [AssessmentController::class, 'previewExport'])->name('assessment.preview');
     Route::post('/{assessment}/import', [AssessmentController::class, 'import'])->name('assessment.import');
-    Route::post('/{assessment}/send-email', [AssessmentController::class, 'sendEmail'])->name('assessment.send-email');
     Route::delete('/{assessment}', [AssessmentController::class, 'destroy'])->name('assessment.destroy');
 
 });
 
 Route::get('/questionnaire/export', [QuestionnaireController::class, 'export'])->name('questionnaire.export');
-Route::post('/questionnaire/import/preview', [QuestionnaireImportController::class, 'preview'])->name('questionnaire.import.preview');
-Route::post('/questionnaire/import', [QuestionnaireImportController::class, 'import'])->name('questionnaire.import');
+
 
 Route::post('/dashboard/export-ppt', [DashboardController::class, 'exportPpt'])
     ->name('dashboard.export.ppt');
