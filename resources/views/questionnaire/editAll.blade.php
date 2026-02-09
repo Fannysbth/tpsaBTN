@@ -13,6 +13,7 @@
 <form method="POST" action="{{ route('questionnaire.updateAll') }}" id="questionnaire-form">
     @csrf
     @method('PUT')
+    <input type="hidden" name="deleted_questions" id="deleted-questions" value="">
 
     
 
@@ -674,29 +675,40 @@ document.querySelectorAll('.question-card').forEach(card => {
 </script>
 
 <script>
+let deletedQuestions = []
+
 document.addEventListener('click', function (e) {
     const btn = e.target.closest('.delete-question-btn')
     if (!btn) return
 
     e.preventDefault()
-    e.stopPropagation() // ⛔ jangan toggle card
+    e.stopPropagation()
 
     const card = btn.closest('.question-card')
     if (!card) return
 
+    const questionId = card.dataset.questionId
+
     const confirmDelete = confirm(
         `PERINGATAN!\n\n` +
-        `Pertanyaan ini akan DIHAPUS.\n` +
-        `Perubahan ini tidak bisa dibatalkan.\n\n` +
+        `Pertanyaan ini akan DIHAPUS setelah Save.\n` +
+        `Jika Cancel, perubahan akan dibatalkan.\n\n` +
         `Yakin ingin melanjutkan?`
     )
 
     if (!confirmDelete) return
 
-    // 🔥 hapus dari DOM
+    // 👉 hanya simpan kalau EXISTING question (bukan new_xxx)
+    if (!questionId.startsWith('new_')) {
+        deletedQuestions.push(questionId)
+        document.getElementById('deleted-questions').value =
+            deletedQuestions.join(',')
+    }
+
+    // ❌ HAPUS DARI UI SAJA
     card.remove()
 
-    // (opsional) update nomor pertanyaan
+    // update nomor
     document.querySelectorAll('.question-number').forEach((el, i) => {
         el.textContent = i + 1
     })

@@ -184,12 +184,23 @@
             @endif
             </div>
 
-            <div class="action-btns " style="margin-left: 10px;">
-                <button class="btn btn-sm btn-danger delete-question"
-                        data-id="{{ $question->id }}">
-                <i class="fas fa-trash" ></i>
-                </button>
-            </div>
+            <form
+    action="{{ route('questionnaire.questions.destroy', $question) }}"
+    method="POST"
+    onsubmit="return confirm('Yakin ingin menghapus question ini?');"
+    style="margin:0;"
+>
+    @csrf
+    @method('DELETE')
+
+    <button
+        type="submit"
+        class="btn btn-sm btn-danger"
+    >
+        <i class="fas fa-trash"></i>
+    </button>
+</form>
+
         </div>
     @endforeach
 @endforeach
@@ -354,6 +365,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
 });
 </script>
+
+
 
 <style>
     .btn-success {

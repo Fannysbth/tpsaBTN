@@ -48,17 +48,20 @@ class QuestionnaireController extends Controller
     // Update semua pertanyaan sekaligus
     public function updateAll(Request $request)
     {
+        $deletedIds = collect(
+    explode(',', $request->deleted_questions ?? '')
+)->filter()->map(fn ($id) => (int) $id)->toArray();
+
+if (!empty($deletedIds)) {
+    QuestionOption::whereIn('question_id', $deletedIds)->delete();
+    Question::whereIn('id', $deletedIds)->delete();
+}
+
         DB::beginTransaction();
 
         try {
             foreach ($request->questions ?? [] as $id => $data) {
-                // Skip if marked for deletion
-                if (isset($data['_delete']) && $data['_delete'] == '1') {
-                    if (is_numeric($id)) {
-                        Question::where('id', $id)->delete();
-                    }
-                    continue;
-                }
+                
 
                 // Skip if question text is empty
                 $text = trim($data['question_text'] ?? '');
@@ -245,8 +248,12 @@ class QuestionnaireController extends Controller
 
     public function destroyQuestion(Question $question)
     {
-        $question->delete();
-        return response()->json(['success' => true]);
+    $question->options()->delete();     
+    $question->delete();
+        return redirect()
+    ->back()
+    ->with('success', 'Question berhasil dihapus');
+
     }
 
     public function updateOrder(Request $request)
