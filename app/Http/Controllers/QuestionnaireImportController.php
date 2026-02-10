@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Question;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\DB;
 
 class QuestionnaireImportController extends Controller
 {
@@ -44,8 +45,10 @@ public function preview(Request $request)
      */
     public function import(Request $request)
     {
+        DB::beginTransaction();
         $questions = $request->input('questions', []);
 
+        try {
         foreach ($questions as $q) {
 
             if (!($q['import'] ?? false)) {
@@ -54,9 +57,14 @@ public function preview(Request $request)
 
             /** DELETE */
             if (($q['action'] ?? '') === 'delete') {
-                Question::where('id', $q['id'])->delete();
-                continue;
-            }
+    $question = Question::find($q['id']);
+    if ($question) {
+        $question->options()->delete();
+        $question->delete();
+    }
+    continue;
+}
+
 
             /** UPDATE */
             if (($q['action'] ?? '') === 'update') {
@@ -78,9 +86,11 @@ public function preview(Request $request)
                 if ($q['question_type'] === 'pilihan') {
                     foreach ($q['options'] ?? [] as $opt) {
                         $question->options()->create([
-                            'text'  => $opt['text'],
-                            'score' => $opt['score'],
-                        ]);
+    'option_text' => $opt['text'],
+    'score' => isset($opt['score']) && $opt['score'] !== ''
+        ? (int) $opt['score']
+        : 0,
+]);
                     }
                 }
 
@@ -100,17 +110,29 @@ public function preview(Request $request)
             ]);
 
             if ($q['question_type'] === 'pilihan') {
-                foreach ($q['options'] ?? [] as $opt) {
-                    $question->options()->create([
-                        'text'  => $opt['text'],
-                        'score' => $opt['score'],
-                    ]);
-                }
-            }
+    foreach ($q['options'] ?? [] as $opt) {
+
+        // skip option kosong total (penting!)
+        if (empty($opt['text'])) {
+            continue;
         }
+
+        $question->options()->create([
+            'option_text' => $opt['text'],                 // ✅ BENAR
+            'score'       => (int) ($opt['score'] ?? 0),   // ✅ AMAN
+        ]);
+    }
+}
+
+        }
+        DB::commit();
 
         return redirect()
             ->route('questionnaire.index')
             ->with('success', 'Import questionnaire berhasil');
+            } catch (\Throwable $e) {
+        DB::rollBack();
+        throw $e;
+    }
     }
 }

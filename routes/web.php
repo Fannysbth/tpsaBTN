@@ -56,6 +56,10 @@ Route::prefix('questionnaire')->group(function () {
         ->name('questionnaire.updateAll');
 });
 
+Route::get('/questionnaire/categories', [CategoryController::class, 'create'])->name('categories.create');
+Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
+Route::put('/categories/{id}', [CategoryController::class, 'update'])->name('categories.update');
+Route::delete('/categories/{id}', [CategoryController::class, 'destroy'])->name('categories.destroy');
 
 Route::get('/categories/create', [CategoryController::class, 'create'])->name('categories.create');
 Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');

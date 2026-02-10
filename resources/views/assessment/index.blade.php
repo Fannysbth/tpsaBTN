@@ -9,10 +9,7 @@
 </x-header>
 
 <div class="assessment-page">
-
-
-
-<div class="toolbar">
+    <div class="toolbar" >
     <a href="{{ route('assessment.create') }}" class="btn-edit">
         <i class="fas fa-plus"></i>
         <span>Add</span>
@@ -22,7 +19,7 @@
     <form method="GET" 
           action="{{ route('assessment.index') }}" 
           id="filter-form"
-          style="display:flex; gap:10px; align-items:center; margin-right: 30px;">
+          style="display:flex; gap:10px; align-items:center;">
     {{-- SEARCH COMPANY --}}
         <input type="text"
        id="company-search"
@@ -65,10 +62,10 @@
 @endif
 
 {{-- ASSESSMENT TABLE --}}
-<div class="question-card" style="margin-top: 10px; margin-right: 30px;">
+<div class="question-card" style=" width:100%; margin:10px 100px 0 0;">
 
     {{-- TABLE HEADER --}}
-    <div class="question-header" style="grid-template-columns: 30px 150px 1fr 180px 200px 100px">
+    <div class="question-header" style="grid-template-columns: 30px 150px 1fr 180px 200px 100px; margin:10px">
         <div>No</div>
         <div style= "text-align:center;">Date</div>
         <div>Company Name</div>
@@ -179,7 +176,7 @@
 
 </div>
 
-<div style="margin-top:20px; display:flex; justify-content:flex-end; margin-right:30px;">
+<div style="margin-top:20px; display:flex; justify-content:flex-end; ">
 <a href="{{ route('assessment.export.report', request()->query()) }}"
    class="btn-success"
    style="padding: 10px 24px; border-radius: 8px; font-weight: 500;">

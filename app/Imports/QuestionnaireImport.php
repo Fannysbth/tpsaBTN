@@ -11,6 +11,21 @@ class QuestionnaireImport implements ToCollection
 {
     public array $importData = [];
     public array $errors = [];
+    protected int $indicatorStartCol = 6; // setelah F
+    protected int $indicatorEndCol;
+    protected int $attachmentCol;
+
+    protected function parseScore($value): ?float
+{
+    if ($value === null || $value === '') return null;
+
+    // ganti koma ke titik (Excel ID locale)
+    $normalized = str_replace(',', '.', $value);
+
+    return is_numeric($normalized) ? (float)$normalized : null;
+}
+
+
 
     protected array $excelQuestions = [];
 
@@ -28,6 +43,13 @@ class QuestionnaireImport implements ToCollection
          */
         $currentCategory = null;
         $currentIndex = null;
+        $headerRow = $rows[1]; // header baris ke-2 (levels)
+
+        $lastColIndex = count($headerRow) - 1;
+
+        $this->attachmentCol = $lastColIndex;
+        $this->indicatorEndCol = $lastColIndex - 1;
+
 
         foreach ($rows as $i => $row) {
 
@@ -61,47 +83,100 @@ class QuestionnaireImport implements ToCollection
 
             if (!$currentCategory) continue;
 
+            // ==============================
+// PARSE INDICATOR (V)
+// ==============================
+$indicator = [];
+
+for ($col = $this->indicatorStartCol; $col <= $this->indicatorEndCol; $col++) {
+
+    if (strtoupper(trim((string)($row[$col] ?? ''))) === 'V') {
+
+        // nama indicator diambil dari header baris ke-2
+        $indicatorName = strtolower(trim((string)($headerRow[$col] ?? '')));
+
+        if ($indicatorName !== '') {
+            $indicator[] = $indicatorName;
+        }
+    }
+}
+
+
             /**
              * QUESTION UTAMA
              * B numeric && D === ':'
              */
             if (is_numeric($B) && trim((string)$D) === ':') {
 
-                $question = [
-                    'category_id'   => $currentCategory->id,
-                    'category_name' => $currentCategory->name,
-                    'sub'           => trim((string)$A) ?: null,
-                    'no'            => (int)$B,
-                    'question_text' => trim((string)$C),
-                    'question_type' => 'isian', // default isian dulu
-                    'indicator'     => [], 
-                    'attachment'    => ($attachment === '-' ? null : $attachment),
-                    'options'       => [],
-                ];
+    $question = [
+        'category_id'   => $currentCategory->id,
+        'category_name' => $currentCategory->name,
+        'sub'           => trim((string)$A) ?: null,
+        'no'            => (int)$B,
+        'question_text' => trim((string)$C),
+        'question_type' => 'isian', // default
+        'indicator'     => $indicator,
+        'clue'          => trim((string)$E) ?: null,
+        'attachment'    => ($attachment === '-' ? null : $attachment),
 
-                $this->excelQuestions[] = $question;
-                $currentIndex = array_key_last($this->excelQuestions);
-                continue;
-            }
+        // 🔥 option pertama disimpan dulu tapi belum dipakai
+        '_first_option' => [
+    'text'  => trim((string)$E) ?: null,
+    'score' => $this->parseScore($F),
+],
+        'options'       => [],
+    ];
+
+    $this->excelQuestions[] = $question;
+    $currentIndex = array_key_last($this->excelQuestions);
+    continue;
+}
+
 
             /**
              * OPTION LANJUTAN
              * B dan C kosong, E ada → baris tambahan opsi
              */
             if (
-                $currentIndex !== null &&
-                $B === null && $C === null &&
-                trim((string)$E) !== ''
-            ) {
-                $this->excelQuestions[$currentIndex]['options'][] = [
-                    'text'  => trim((string)$E),
-                    'score' => is_numeric($F) ? (int)$F : null,
-                ];
+    $currentIndex !== null &&
+    $B === null && $C === null &&
+    trim((string)$E) !== ''
+) {
+    // 🔥 pertama kali ketemu baris lanjutan
+    if ($this->excelQuestions[$currentIndex]['question_type'] === 'isian') {
 
-                // kalau ada opsi tambahan → ubah question_type jadi pilihan
-                $this->excelQuestions[$currentIndex]['question_type'] = 'pilihan';
-            }
+        // ubah jadi pilihan
+        $this->excelQuestions[$currentIndex]['question_type'] = 'pilihan';
+
+        // pindahkan option pertama dari baris utama
+        $first = $this->excelQuestions[$currentIndex]['_first_option'];
+
+if (!empty($first['text'])) {
+    $this->excelQuestions[$currentIndex]['options'][] = [
+        'text'  => $first['text'],
+        'score' => $first['score'], // 🔥 score ikut
+    ];
+}
+
+
+        // clue dibuang
+        $this->excelQuestions[$currentIndex]['clue'] = null;
+    }
+
+    // option berikutnya
+    $this->excelQuestions[$currentIndex]['options'][] = [
+        'text'  => trim((string)$E),
+        'score' => $this->parseScore($F),
+    ];
+}
+
+
         }
+
+        foreach ($this->excelQuestions as &$q) {
+    unset($q['_first_option']);
+}
+
 
         if (empty($this->excelQuestions)) {
             $this->errors[] = '0 question terbaca dari Excel.';
@@ -212,7 +287,7 @@ class QuestionnaireImport implements ToCollection
             'options'       => collect($q['options'] ?? [])
                 ->map(fn ($o) => [
                     trim((string)$o['text']),
-                    $o['score'],
+                    $o['score'] !== null ? (float)$o['score'] : null,
                 ])
                 ->values()
                 ->toArray(),

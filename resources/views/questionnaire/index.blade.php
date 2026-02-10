@@ -31,7 +31,9 @@
 
 
 
-<div  style="max-width: 1202px; box-sizing: border-box; background: #F5F6FA; padding: 1px; margin: 10px 0 0 10px;">
+<div  class="questionnaire-page">
+
+    {{-- TOOLBAR --}}
 
     <div class="filter-edit-wrapper">
         <div class="filter-box">
@@ -92,6 +94,9 @@
         <a href="#" class="dropdown-item indicator-item" data-indicator="">
             All Indicator
         </a>
+        <a href="#" class="dropdown-item indicator-item" data-indicator="umum">
+            Umum
+        </a>
         <a href="#" class="dropdown-item indicator-item" data-indicator="high">
             High
         </a>
@@ -104,16 +109,32 @@
     </div>
 </div>
 
-        <a href="{{ route('questionnaire.editAll') }}"    class="btn-edit">
-    <i class="fas fa-edit"></i>
-    Edit
-</a>
+     <div class="dropdown add-wrapper">
+        <button type="button"
+                class="btn btn-primary"
+                data-bs-toggle="dropdown">
+            <i class="fas fa-plus me-1"></i> Edit
+        </button>
+
+        <ul class="dropdown-menu">
+            <li>
+                <a class="dropdown-item" href="{{ route('categories.create') }}">
+                    Category
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="{{ route('questionnaire.editAll') }}">
+                    Question
+                </a>
+            </li>
+        </ul>
+    </div>
 
 
     </div>
 
     {{-- QUESTION TABLE --}}
-    <div class="question-card" style="margin-top: 10px; margin-right: 20px; margin-left:20px;">
+    <div class="question-card" style="margin-top: 10px; margin-left:10px;">
 
         {{-- HEADER --}}
         <div class="question-header">
@@ -170,8 +191,8 @@
 
             <div style="text-align:center; margin:0 5px;">
             @if($question->question_type === 'pilihan')
-                <select style="padding:6px 8px;border-radius:6px;margin:0 50px;border:1px solid #4880FF;max-width:300px;
-                              overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                <select style="padding:6px 8px;border-radius:6px;margin:0 5px;border:1px solid #4880FF;width:130px;
+                              overflow:hidden;text-overflow:ellipsis;white-space:nowrap; ">
                 <option value="">-- Pilihan --</option>
                 @foreach($question->options as $opt)
                     <option>{{ $opt->option_text }}</option>
@@ -369,7 +390,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 <style>
-    .btn-success {
+.questions-container {
+    height: calc(100vh - 260px);
+    width: 100%;
+    overflow-y: auto;
+    padding: 0 24px;   /* jarak kiri kanan */
+    box-sizing: border-box;
+}
+
+.btn-success {
     background: #52C41A;
     border: 1px solid #52C41A;
     color: white;
