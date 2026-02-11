@@ -56,7 +56,10 @@
             @php
                 $action = $q['action'] ?? 'new';
                 $isDeleted = $action === 'delete';
-                $isNew = $action === 'new';
+                $isNew = $action === 'new' || $action === 'add';
+                
+                // Pastikan question_no ada
+                $questionNo = $q['question_no'] ?? $q['no'] ?? $loop->iteration;
                 
                 $indicators = is_array($q['indicator'] ?? null)
                     ? $q['indicator']
@@ -70,13 +73,13 @@
                  data-action="{{ $action }}">
                 
                 {{-- CARD HEADER --}}
-                <div class="question-card-header" onclick="toggleCard({{ $i }})">
+                <div class="question-card-header">
                     <div class="question-header-left">
-                        <div class="question-number">{{ $i + 1 }}</div>
+                        <div class="question-number">{{ $questionNo }}</div>
                         <div class="question-info">
                             <div class="question-title-row">
                                 <span class="action-icon">{{ $actionIcons[$action] ?? '' }}</span>
-                                <span class="question-title">{{ Str::limit($q['question_text'], 80) }}</span>
+                                <span class="question-title">{{ Str::limit($q['question_text'] ?? '', 80) }}</span>
                             </div>
                             <div class="question-meta">
                                 <span class="action-badge {{ $action }}">{{ $actionTexts[$action] ?? strtoupper($action) }}</span>
@@ -94,7 +97,7 @@
                         </div>
                     </div>
 
-                    <label class="switch" onclick="event.stopPropagation()">
+                    <label class="switch">
                         @if($isDeleted)
                         <input type="checkbox"
                                name="questions[{{ $i }}][import]"
@@ -106,15 +109,14 @@
                                name="questions[{{ $i }}][import]"
                                checked
                                class="question-checkbox"
-                               data-index="{{ $i }}"
-                               onchange="toggleCard({{ $i }}); updateCount()">
+                               data-question-index="{{ $i }}">
                         <span class="slider"></span>
                         @endif
                     </label>
                 </div>
 
-                {{-- CARD BODY --}}
-                <div class="question-card-body" style="display:{{ $isNew ? 'block' : 'none' }}">
+                {{-- CARD BODY - SEMUA CARD DEFAULT TERTUTUP --}}
+                <div class="question-card-body" style="display:none">
                     <input type="hidden" name="questions[{{ $i }}][action]" value="{{ $action }}">
 
                     @if($q['id'] ?? false)
@@ -122,7 +124,7 @@
                     @endif
 
                     @if(!$isDeleted)
-                    <input type="hidden" name="questions[{{ $i }}][no]" value="{{ $q['no'] ?? '' }}">
+                    <input type="hidden" name="questions[{{ $i }}][question_no]" value="{{ $questionNo }}">
                     @endif
 
                     @if($isDeleted)
@@ -130,7 +132,7 @@
                         <div class="deleted-info-grid">
                             <div class="deleted-info-item">
                                 <label>Question</label>
-                                <div class="deleted-value">{{ $q['question_text'] }}</div>
+                                <div class="deleted-value">{{ $q['question_text'] ?? '' }}</div>
                             </div>
                             <div class="deleted-info-item">
                                 <label>Category</label>
@@ -156,8 +158,7 @@
                                 <label class="form-label">Question</label>
                                 <textarea class="form-textarea question-text" 
                                           rows="3"
-                                          oninput="updateQuestionPreview({{ $i }}, this.value)"
-                                          name="questions[{{ $i }}][question_text]">{{ $q['question_text'] }}</textarea>
+                                          name="questions[{{ $i }}][question_text]">{{ $q['question_text'] ?? '' }}</textarea>
                             </div>
 
                             {{-- ANSWER SECTION --}}
@@ -176,12 +177,12 @@
                                             <div class="option-number">{{ $oi + 1 }}.</div>
                                             <input type="text"
                                                    name="questions[{{ $i }}][options][{{ $oi }}][text]"
-                                                   value="{{ $opt['text'] }}"
+                                                   value="{{ $opt['text'] ?? '' }}"
                                                    placeholder="Option text"
                                                    class="option-input">
                                             <input type="number"
                                                    name="questions[{{ $i }}][options][{{ $oi }}][score]"
-                                                   value="{{ $opt['score'] }}"
+                                                   value="{{ $opt['score'] ?? '' }}"
                                                    placeholder="Score"
                                                    min="0"
                                                    step="1"
@@ -293,7 +294,7 @@
                     </div>
                 </div>
                 <label class="checkbox-label select-all">
-                    <input type="checkbox" id="select-all"checked onchange="toggleAllQuestions(this.checked)">
+                    <input type="checkbox" id="select-all" checked onchange="toggleAllQuestions(this.checked)">
                     <span class="checkmark"></span>
                     <span class="checkbox-text">Select All</span>
                 </label>
@@ -319,50 +320,72 @@
     </div>
 </div>
 
-
 <script>
 // Data untuk tracking
 let questionStates = {};
 
-function toggleCard(index) {
+// Fungsi toggle expand/collapse card body
+function toggleCardBody(index) {
+    const card = document.querySelector(`.import-card[data-question-index="${index}"]`);
+    if (!card) return;
+
+    const body = card.querySelector('.question-card-body');
+    const isVisible = body.style.display === 'block';
+    
+    // Toggle visibility
+    body.style.display = isVisible ? 'none' : 'block';
+    
+    // Simpan state
+    questionStates[index] = !isVisible;
+    
+    return false;
+}
+
+// Fungsi untuk mengaktifkan/nonaktifkan card berdasarkan checkbox
+function toggleCardEnabled(index) {
     const card = document.querySelector(`.import-card[data-question-index="${index}"]`);
     if (!card) return;
 
     const checkbox = card.querySelector('.question-checkbox');
-    const inputs = card.querySelectorAll('input, select, textarea');
+    const inputs = card.querySelectorAll('input:not(.question-checkbox), select, textarea');
 
-    if (checkbox.checked) {
+    if (checkbox && checkbox.checked) {
         card.style.opacity = '1';
         inputs.forEach(input => input.disabled = false);
     } else {
         card.style.opacity = '0.4';
-        inputs.forEach(input => {
-            if (input !== checkbox) input.disabled = true;
-        });
+        inputs.forEach(input => input.disabled = true);
     }
 
     updateCount();
 }
 
-
+// Update event handler di checkbox
+function setupCheckboxEvents() {
+    document.querySelectorAll('.question-checkbox').forEach(cb => {
+        cb.addEventListener('change', function() {
+            const index = this.getAttribute('data-question-index');
+            toggleCardEnabled(index);
+        });
+    });
+}
 
 function toggleAllQuestions(checked) {
     const checkboxes = document.querySelectorAll('.question-checkbox');
     checkboxes.forEach(cb => {
         cb.checked = checked;
-        const event = new Event('change');
-        cb.dispatchEvent(event);
+        const index = cb.getAttribute('data-question-index');
+        toggleCardEnabled(index);
     });
     updateCount();
 }
-
 
 function updateCount() {
     let count = 0;
     
     // Hitung checkbox yang checked
     document.querySelectorAll('.question-checkbox').forEach(cb => {
-        if (cb.checked) count++;
+        if (cb.checked && !cb.disabled) count++;
     });
     
     // Hitung question delete (otomatis terpilih)
@@ -389,10 +412,14 @@ function updateCount() {
 
 // Initialize semua checkbox saat halaman dimuat
 document.addEventListener('DOMContentLoaded', function() {
+    // Setup checkbox events
+    setupCheckboxEvents();
+    
+    // Set semua checkbox checked
     document.querySelectorAll('.question-checkbox').forEach(cb => {
         cb.checked = true;
-        const index = cb.dataset.index;
-        toggleCard(index); // Hanya index
+        const index = cb.getAttribute('data-question-index');
+        toggleCardEnabled(index);
     });
 
     // Set select all
@@ -400,6 +427,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Hitung awal
     updateCount();
+    
+    // Setup header click untuk toggle card body
+    document.querySelectorAll('.question-card-header').forEach(header => {
+        header.addEventListener('click', function(e) {
+            // Jangan trigger jika klik pada switch
+            if (e.target.closest('.switch')) return;
+            
+            const card = this.closest('.import-card');
+            const index = card.getAttribute('data-question-index');
+            toggleCardBody(index);
+        });
+    });
 });
 
 // Form submission handler
@@ -411,7 +450,7 @@ document.getElementById('import-form').addEventListener('submit', function(e) {
         return false;
     }
     
-    // Validasi tambahan (opsional)
+    // Validasi tambahan
     let hasInvalidData = false;
     document.querySelectorAll('.import-card:not([data-action="delete"])').forEach(card => {
         const checkbox = card.querySelector('.question-checkbox');
@@ -435,7 +474,6 @@ document.getElementById('import-form').addEventListener('submit', function(e) {
 </script>
 
 <style>
-    
 .container {
     max-width: 1400px;
     margin: 0 auto;

@@ -112,7 +112,7 @@ for ($col = $this->indicatorStartCol; $col <= $this->indicatorEndCol; $col++) {
         'category_id'   => $currentCategory->id,
         'category_name' => $currentCategory->name,
         'sub'           => trim((string)$A) ?: null,
-        'no'            => (int)$B,
+        'question_no' => trim((string)($B ?? '')),
         'question_text' => trim((string)$C),
         'question_type' => 'isian', // default
         'indicator'     => $indicator,
@@ -188,25 +188,34 @@ if (!empty($first['text'])) {
          * 2. LOAD DATABASE QUESTIONS
          * ==============================
          */
-        $dbQuestions = Question::with('options')
-            ->get()
-            ->map(function ($q) {
-                return [
-                    'id'            => $q->id,
-                    'category_id'   => $q->category_id,
-                    'sub'           => $q->sub,
-                    'question_text' => $q->question_text,
-                    'question_type' => $q->question_type,
-                    'indicator'     => json_decode($q->indicator, true) ?? [],
-                    'attachment'    => $q->attachment_text,
-                    'options'       => $q->options->map(fn ($o) => [
-                        'text'  => $o->option_text,
-                        'score' => $o->score,
-                    ])->toArray(),
-                ];
-            })
-            ->keyBy(fn ($q) => $this->signature($q))
-            ->toArray();
+$dbQuestions = Question::with('options')
+    ->get()
+    ->map(function ($q) {
+        // Handle indicator field - check if it's already an array
+        $indicator = $q->indicator;
+        if (is_string($indicator)) {
+            $indicator = json_decode($indicator, true) ?? [];
+        } elseif (!is_array($indicator)) {
+            $indicator = (array) $indicator;
+        }
+
+        return [
+            'id'            => $q->id,
+            'category_id'   => $q->category_id,
+            'sub'           => $q->sub,
+            'question_text' => $q->question_text,
+            'question_no'   => $q->question_no, // Tambahkan ini
+            'question_type' => $q->question_type,
+            'indicator'     => $indicator,
+            'attachment'    => $q->attachment_text,
+            'options'       => $q->options->map(fn ($o) => [
+                'text'  => $o->option_text,
+                'score' => $o->score,
+            ])->toArray(),
+        ];
+    })
+    ->keyBy(fn ($q) => $this->signature($q))
+    ->toArray();
 
         /**
          * ==============================
@@ -253,6 +262,7 @@ if (!empty($first['text'])) {
                     'id'            => $dbQ['id'],
                     'category_id'   => $dbQ['category_id'],
                     'question_text' => $dbQ['question_text'],
+                    'question_no'   => $dbQ['question_no'] ?? null,
                     'action'        => 'delete',
                 ];
             }

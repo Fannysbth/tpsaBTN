@@ -107,7 +107,7 @@ public function exportReport(Request $request)
 {
     $categories = Category::with([
         'activeQuestions' => function($query) {
-            $query->orderBy('order');
+            $query->orderBy('order_index');
         },
         'activeQuestions.options'
     ])->get();
@@ -121,80 +121,70 @@ public function exportReport(Request $request)
    public function store(Request $request)
 {
     DB::beginTransaction();
+
     try {
         $request->validate([
-            'company_name' => 'required|string|max:255',
+            'company_name'   => 'required|string|max:255',
             'category_level' => 'required|array',
         ]);
-        
+
         $categoryScores = [];
-        $answersToCreate = [];
-        
+        $answers = [];
+
         foreach ($request->category_level as $categoryId => $level) {
-            // Simpan indikator untuk kategori
+
+            $category = Category::findOrFail($categoryId);
+
+            // SIMPAN CATEGORY SCORE
             $categoryScores[$categoryId] = [
-                'score' => 0,
-                'indicator' => $level,
+                'indicator'    => $category->indicator === 'umum' ? 'umum' : $level,
+                'score'        => 0,
                 'actual_score' => 0,
-                'max_score' => 0
+                'max_score'    => 0,
             ];
-            
-            // Ambil pertanyaan yang sesuai dengan indikator
+
+            // QUERY QUESTION
             $questions = Question::where('category_id', $categoryId)
                 ->where('is_active', true)
-                ->where(function($query) use ($level) {
-                    $query->whereJsonContains('indicator', $level)
-                          ->orWhere('indicator', 'LIKE', "%{$level}%");
+                ->when($category->indicator !== 'umum', function ($q) use ($level) {
+                    $q->where('indicator', $level);
                 })
-                ->orderBy('order')
+                ->when($category->indicator === 'umum', function ($q) {
+                    $q->where('indicator', 'umum');
+                })
+                ->orderBy('order_index')
                 ->get();
-            
+
             foreach ($questions as $question) {
-                // Set jawaban default
-                $defaultAnswer = null;
-                $defaultScore = 0;
-                
-               
-                
-                $answersToCreate[] = [
+                $answers[] = [
                     'question_id' => $question->id,
-                    'score' => $defaultScore,
-                    'answer_text' => $defaultAnswer,
+                    'answer_text' => null,
+                    'score'       => 0,
                 ];
             }
         }
-        
-        // Simpan assessment
-$assessment = Assessment::create([
-    'company_name' => $request->company_name,
-    'assessment_date' => now(),
-    'total_score' => 0,
-    'risk_level' => null,
-    'category_scores' => $categoryScores,
-]);
 
-// Simpan semua jawaban
-foreach ($answersToCreate as $answerData) {
-    $assessment->answers()->create($answerData);
-}
+        $assessment = Assessment::create([
+            'company_name'     => $request->company_name,
+            'assessment_date'  => now(),
+            'category_scores'  => $categoryScores,
+            'total_score'      => 0,
+            'risk_level'       => null,
+        ]);
 
+        $assessment->answers()->createMany($answers);
 
-        
         DB::commit();
-        
-        return redirect()->route('assessment.index')
-    ->with('alert_success', 'Assessment berhasil ditambahkan.');
 
-            
-    } catch (\Exception $e) {
+        return redirect()->route('assessment.index')
+            ->with('alert_success', 'Assessment berhasil ditambahkan');
+
+    } catch (\Throwable $e) {
         DB::rollBack();
-        Log::error('Assessment store error: ' . $e->getMessage());
-        
-        return back()
-            ->with('alert_error', 'Gagal menambahkan assessment: ' . $e->getMessage())
-            ->withInput();
+        return back()->with('alert_error', $e->getMessage());
     }
 }
+
 
 public function edit($id)
 {
@@ -203,7 +193,7 @@ public function edit($id)
 
     $categories = Category::with(['activeQuestions' => function($q) use ($assessment) {
         $q->where('is_active', true)
-          ->orderBy('order');
+          ->orderBy('order_index');
     }, 'activeQuestions.options'])->get();
 
     // Ambil indikator terakhir dari category_scores
@@ -246,13 +236,11 @@ public function update(Request $request, $id)
 
             // Ambil pertanyaan sesuai indikator
             $questions = Question::where('category_id', $categoryId)
-                ->where('is_active', true)
-                ->where(function($query) use ($level) {
-                    $query->whereJsonContains('indicator', $level)
-                          ->orWhere('indicator', 'LIKE', "%{$level}%");
-                })
-                ->orderBy('order')
-                ->get();
+    ->where('is_active', true)
+    ->where('indicator', $level)
+    ->orderBy('order_index')
+    ->get();
+
 
 
 
@@ -352,22 +340,14 @@ public function destroy(Assessment $assessment)
 {
     $assessment->load('answers.question.category', 'answers.question.options');
 
-    $categories = Category::with(['questions' => function($q) use ($assessment) {
+    $categories = Category::with(['questions' => function ($q) use ($assessment) {
         $q->where('is_active', true)
-          ->orderBy('order')
-          ->where(function($query) use ($assessment) {
-              // Ambil indikator yang dipilih untuk kategori ini
-              $categoryId = $query->getModel()->category_id;
-              $selectedIndicator = $assessment->category_scores[$categoryId]['indicator'] ?? null;
-              
-              if ($selectedIndicator) {
-                  $query->whereJsonContains('indicator', $selectedIndicator);
-              }
-          });
+          ->orderBy('order_index');
     }])->get();
 
     return view('assessment.show', compact('assessment', 'categories'));
 }
+
 
 
 

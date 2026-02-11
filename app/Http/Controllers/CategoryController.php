@@ -39,6 +39,55 @@ class CategoryController extends Controller
     ));
 }
 
+public function store(Request $request)
+{
+    $validated = $request->validate([
+        'name'     => 'required|string|max:255',
+        'criteria' => 'nullable|array',
+    ]);
+
+    $category = Category::create([
+        'name'     => $validated['name'],
+        'criteria' => $validated['criteria'] ?? null,
+    ]);
+
+    // 🔥 TAMBAHKAN INI
+    if ($request->questions) {
+        foreach ($request->questions as $q) {
+
+            $question = $category->questions()->create([
+                'question_text'   => $q['question_text'] ?? null,
+                'question_type'   => $q['question_type'] ?? 'pilihan',
+                'indicator'       => $q['indicator'] ?? [],
+                'attachment_text' => $q['attachment_text'] ?? null,
+                'clue'            => $q['clue'] ?? null,
+                'has_attachment'  => !empty($q['attachment_text']),
+                'sub'             => $q['sub'] ?? null,
+            ]);
+
+            if (
+                ($q['question_type'] ?? 'pilihan') === 'pilihan'
+                && !empty($q['options'])
+            ) {
+                foreach ($q['options'] as $opt) {
+                    if (!empty($opt['text'])) {
+                        $question->options()->create([
+                            'option_text' => $opt['text'],
+                            'score'       => $opt['score'] ?? 0,
+                        ]);
+                    }
+                }
+            }
+        }
+    }
+
+    return redirect()
+        ->route('categories.create')
+        ->with('success', 'Category & Questions created!');
+}
+
+
+
     public function create(Request $request)
     {
         $categories = Category::all();

@@ -54,7 +54,13 @@ class QuestionnaireExport implements FromCollection, WithHeadings, WithStyles, W
     public function collection()
     {
         $rows = collect();
-        $categories = Category::with('questions.options')->get();
+        $categories = Category::with([
+    'questions' => function ($q) {
+        $q->orderBy('order_index');
+    },
+    'questions.options'
+])->get();
+
 
         foreach ($categories as $category) {
 
@@ -69,9 +75,9 @@ class QuestionnaireExport implements FromCollection, WithHeadings, WithStyles, W
 
             foreach ($category->questions as $question) {
 
-                $indicator = is_string($question->indicator)
-                    ? json_decode($question->indicator, true) ?? []
-                    : [];
+                $indicator = is_array($question->indicator)
+    ? $question->indicator
+    : (json_decode($question->indicator, true) ?? []);
 
                 $isPilihan = $question->question_type === 'pilihan';
                 $options   = $isPilihan ? $question->options : collect();
@@ -80,7 +86,7 @@ class QuestionnaireExport implements FromCollection, WithHeadings, WithStyles, W
                 // ===== BARIS PERTANYAAN (OPTION PERTAMA LANGSUNG DI SINI) =====
                 $baseRow = [
                     $question->sub,
-                    $no++,
+                    $question->question_no,
                     $question->question_text,
                     ':',
                     $isPilihan ? ($firstOpt->option_text ?? '') : ($question->clue ?? '-'),
@@ -88,22 +94,25 @@ class QuestionnaireExport implements FromCollection, WithHeadings, WithStyles, W
                 ];
 
                 foreach ($this->indicatorGroups as $group) {
-                    foreach ($group['levels'] as $level) {
-                        if (
-                            $group['key'] === 'umum' &&
-                            $category->name === 'Informasi Umum'
-                        ) {
-                            $baseRow[] = 'V';
-                        } elseif (
-                            $group['key'] === $category->id &&
-                            in_array(strtolower($level), $indicator)
-                        ) {
-                            $baseRow[] = 'V';
-                        } else {
-                            $baseRow[] = '';
-                        }
-                    }
-                }
+    foreach ($group['levels'] as $level) {
+
+        if (
+            $group['key'] === 'umum' &&
+            $category->name === 'Umum'
+        ) {
+            $baseRow[] = 'V';
+
+        } elseif (
+            $group['key'] === $category->id &&
+            in_array(strtolower($level), array_map('strtolower', $indicator))
+        ) {
+            $baseRow[] = 'V';
+
+        } else {
+            $baseRow[] = '';
+        }
+    }
+}
 
                 $baseRow[] = $question->attachment_text ?? '-';
                 $rows->push($baseRow);

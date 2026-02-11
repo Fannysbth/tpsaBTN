@@ -6,232 +6,142 @@ use App\Models\Category;
 use App\Models\Question;
 use App\Models\QuestionOption;
 use Illuminate\Http\Request;
-use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\QuestionnaireExport;
 use App\Imports\QuestionnaireImport;
-use Maatwebsite\Excel\Facades\Excel;
-
-
 
 class QuestionnaireController extends Controller
 {
+    /* =======================
+     * EXPORT
+     * ======================= */
     public function export()
-{
-    return Excel::download(new QuestionnaireExport, 'questionnaire.xlsx');
-}
+    {
+        return Excel::download(new QuestionnaireExport, 'questionnaire.xlsx');
+    }
 
+    /* =======================
+     * INDEX
+     * ======================= */
     public function index()
-{
-    $categories = Category::with(['questions' => function ($query) {
-        $query->orderBy('order');
-    }])->get();
+    {
+        $categories = Category::with([
+            'questions' => fn ($q) => $q->orderBy('order_index')
+        ])->get();
 
-    // 🔥 tentukan berapa kategori yang tampil di bar utama
-    $mainCategories = $categories->take(3);
-    $moreCategories = $categories->skip(3);
+        return view('questionnaire.index', [
+            'categories'     => $categories,
+            'mainCategories' => $categories->take(3),
+            'moreCategories' => $categories->skip(3),
+        ]);
+    }
 
-    return view('questionnaire.index', compact(
-        'categories',
-        'mainCategories',
-        'moreCategories'
-    ));
-}
-   // Menampilkan semua pertanyaan untuk diedit
+    /* =======================
+     * EDIT ALL
+     * ======================= */
     public function editAll()
     {
-        $categories = Category::with(['questions.options'])->get();
+        $categories = Category::with([
+            'questions.options' => fn ($q) => $q->orderBy('order_index')
+        ])->get();
+
         return view('questionnaire.editAll', compact('categories'));
     }
 
-    // Update semua pertanyaan sekaligus
+    /* =======================
+     * UPDATE ALL
+     * ======================= */
     public function updateAll(Request $request)
     {
-        $deletedIds = collect(
-    explode(',', $request->deleted_questions ?? '')
-)->filter()->map(fn ($id) => (int) $id)->toArray();
-
-if (!empty($deletedIds)) {
-    QuestionOption::whereIn('question_id', $deletedIds)->delete();
-    Question::whereIn('id', $deletedIds)->delete();
-}
-
         DB::beginTransaction();
 
         try {
-            foreach ($request->questions ?? [] as $id => $data) {
-                
+            // DELETE
+            $deletedIds = collect(
+                explode(',', $request->deleted_questions ?? '')
+            )->filter()->map(fn ($id) => (int) $id);
 
-                // Skip if question text is empty
-                $text = trim($data['question_text'] ?? '');
-
-        if ($text === '') {
-            continue;
-        }
-
-
-                $isNew = str_starts_with($id, 'new_');
-
-                if ($isNew) {
-                    // Create new question
-                    $question = new Question();
-                } else {
-                    // Update existing question
-                    $question = Question::find($id);
-                    if (!$question) {
-                        continue;
-                    }
-                }
-
-                // Update question data
-                $question->question_text = $text;
-                $question->question_type = $data['question_type'] ?? 'pilihan';
-                $question->category_id = $data['category_id'] ?? null;
-                $question->indicator = json_encode($data['indicator'] ?? []);
-                $question->attachment_text = $data['attachment_text'] ?? null;
-                $question->clue = $data['clue'] ?? null;
-                $question->sub = $data['sub'] ?? null;
-
-
-                $question->has_attachment = !empty($data['attachment_text']);
-                $question->order = 0;
-
-                $question->save();
-
-                // Handle options based on question type
-                if ($question->question_type === 'pilihan') {
-                    // Delete existing options for existing questions
-                    if (!$isNew) {
-                        $question->options()->delete();
-                    }
-
-                    // Add new options
-                    foreach ($data['options'] ?? [] as $optionId => $optionData) {
-                        if (!empty($optionData['text'])) {
-                           QuestionOption::create([
-        'question_id' => $question->id,
-        'option_text' => $optionData['text'],
-        'score' => $optionData['score'] ?? 0,
-        ]);
-
-                        }
-                    }
-                } else {
-                    // For text answer questions, remove all options
-                    $question->options()->delete();
-                }
+            if ($deletedIds->isNotEmpty()) {
+                QuestionOption::whereIn('question_id', $deletedIds)->delete();
+                Question::whereIn('id', $deletedIds)->delete();
             }
+
+            foreach ($request->questions ?? [] as $data) {
+
+    if (trim($data['question_text'] ?? '') === '') continue;
+
+    $question = Question::firstOrNew([
+        'category_id' => $data['category_id'],
+        'question_no' => trim($data['question_no']),
+    ]);
+
+    $question->fill([
+        'order_index'     => $data['order_index'] ?? 0,
+        'question_text'   => trim($data['question_text']),
+        'question_type'   => $data['question_type'] ?? 'pilihan',
+        'indicator'       => $data['indicator'] ?? null,
+        'clue'            => $data['clue'] ?? null,
+        'attachment_text' => $data['attachment_text'] ?? null,
+        'has_attachment'  => !empty($data['attachment_text']),
+        'sub'             => $data['sub'] ?? null,
+    ]);
+
+    $question->save();
+}
 
             DB::commit();
 
             return redirect()
                 ->route('questionnaire.index')
-                ->with('success', 'All changes have been saved successfully.');
+                ->with('success', 'All changes saved successfully');
 
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('Failed to save questionnaire: ' . $e->getMessage());
-            
-            return back()
-                ->withInput()
-                ->with('error', 'Failed to save changes. Please try again.');
+            Log::error($e);
+
+            return back()->with('error', 'Failed to save data');
         }
     }
 
-    public function storeCategory(Request $request)
-    {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'weight' => 'required|integer|min:1|max:10'
-        ]);
-
-        $category = Category::create($validated);
-
-        if ($request->ajax()) {
-            return response()->json([
-                'success' => true,
-                'category' => $category
-            ]);
-        }
-
-        return redirect()->route('questionnaire.index')
-            ->with('success', 'Category added successfully');
-    }
-
+    /* =======================
+     * STORE QUESTION
+     * ======================= */
     public function storeQuestion(Request $request)
     {
         DB::beginTransaction();
+
         try {
             $validated = $request->validate([
-                'category_id' => 'required|exists:categories,id',
+                'category_id'   => 'required|exists:categories,id',
+                'question_no'   => 'required|string',
                 'question_text' => 'required|string',
                 'question_type' => 'required|in:pilihan,isian',
-                'clue' => 'nullable|string',
-                'indicator' => 'nullable|array',
-                'indicator.*' => 'in:high,medium,low',
+                'indicator'     => 'nullable',
                 'attachment_text' => 'nullable|string',
-                'order' => 'integer'
+                'clue'          => 'nullable|string',
             ]);
 
-            $question = Question::create($validated);
+            // 🔧 AUTO ORDER KE PALING BAWAH
+            $validated['order_index'] =
+                Question::where('category_id', $validated['category_id'])
+                    ->max('order_index') + 1;
 
-            // Jika tipe pilihan, simpan options
-            if ($validated['question_type'] == 'pilihan' && $request->has('options')) {
-                foreach ($request->options as $option) {
-                    QuestionOption::create([
-                        'question_id' => $question->id,
-                        'option_text' => $option['text'],
-                        'score' => $option['score']
-                    ]);
-                }
-            }
-
-            DB::commit();
-
-            if ($request->ajax()) {
-                return response()->json([
-                    'success' => true,
-                    'question' => $question->load('options')
-                ]);
-            }
-
-            return redirect()->route('questionnaire.index')
-                ->with('success', 'Question added successfully');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            throw $e;
-        }
-    }
-
-    public function updateQuestion(Request $request, Question $question)
-    {
-        DB::beginTransaction();
-        try {
-            $validated = $request->validate([
-                'question_text' => 'required|string',
-                'question_type' => 'required|in:pilihan,isian',
-                'clue' => 'nullable|string',
-                'has_attachment' => 'boolean',
-                'indicator' => 'nullable|array',
-                'indicator.*' => 'in:high,medium,low',
-                'attachment_text' => 'nullable|string',
-                'order' => 'integer'
+            $question = Question::create([
+                ...$validated,
+                'has_attachment' => !empty($validated['attachment_text']),
             ]);
 
-            $question->update($validated);
-
-            // Hapus options lama jika ada
-            if (in_array($validated['question_type'], ['pilihan'])) {
-                $question->options()->delete();
-                
-                if ($request->has('options')) {
-                    foreach ($request->options as $option) {
-                        QuestionOption::create([
-                            'question_id' => $question->id,
-                            'option_text' => $option['text'],
-                            'score' => $option['score']
+            if (
+                $question->question_type === 'pilihan'
+                && $request->options
+            ) {
+                foreach ($request->options as $opt) {
+                    if (!empty($opt['text'])) {
+                        $question->options()->create([
+                            'option_text' => $opt['text'],
+                            'score' => $opt['score'] ?? 0,
                         ]);
                     }
                 }
@@ -239,27 +149,40 @@ if (!empty($deletedIds)) {
 
             DB::commit();
 
-            return response()->json(['success' => true]);
-        } catch (\Exception $e) {
+            return response()->json([
+                'success'  => true,
+                'question' => $question->load('options')
+            ]);
+
+        } catch (\Throwable $e) {
             DB::rollBack();
-            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+            throw $e;
         }
     }
 
+    /* =======================
+     * DELETE QUESTION
+     * ======================= */
     public function destroyQuestion(Question $question)
     {
-    $question->options()->delete();     
-    $question->delete();
-        return redirect()
-    ->back()
-    ->with('success', 'Question berhasil dihapus');
+        $question->options()->delete();
+        $question->delete();
 
+        return back()->with('success', 'Question deleted');
     }
 
+    /* =======================
+     * UPDATE ORDER (DRAG)
+     * ======================= */
     public function updateOrder(Request $request)
     {
-        foreach ($request->questions as $question) {
-            Question::where('id', $question['id'])->update(['order' => $question['order']]);
+        if (!$request->questions) {
+            return response()->json(['success' => false]);
+        }
+
+        foreach ($request->questions as $q) {
+            Question::where('id', $q['id'])
+                ->update(['order_index' => $q['order']]);
         }
 
         return response()->json(['success' => true]);

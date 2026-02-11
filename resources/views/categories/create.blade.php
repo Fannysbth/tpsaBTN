@@ -47,7 +47,6 @@
         </div>
 
         <div style="margin-bottom: 16px;">
-            <label style="display:block; margin-bottom:8px; font-weight:600;">Criteria</label>
             <div style="display:flex; flex-direction:column; gap:8px;">
                 @php
                     $criteria = is_array($selectedCategory->criteria) 
@@ -55,10 +54,13 @@
                         : json_decode($selectedCategory->criteria ?? '{}', true);
                 @endphp
                 @foreach([ 'high'=>'High', 'medium'=>'Medium', 'low'=>'Low'] as $key => $label)
+                <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+                    <label style="font-weight:500;width: 15%">{{ $label }} Criteria</label>
                     <input type="text" name="criteria[{{ $key }}]" 
                            value="{{ $criteria[$key] ?? '' }}" required
                            placeholder="{{ $label }} Criteria"
-                           style="width:100%; padding:10px; border:1px solid #4880FF; border-radius:8px;">
+                           style="width:85%; padding:10px; border:1px solid #4880FF; border-radius:8px;">
+                </div>
                 @endforeach
             </div>
         </div>
@@ -168,13 +170,15 @@
                                             </div>
                                         @endif
                                     </div>
-                                    <div>
-                                        <button type="button" class="delete-question-btn"
-                                                data-question-id="{{ $question->id }}"
-                                                style="align-self: flex-start; padding: 10px 20px; background: #FF4D4F; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer;">
-                                            <i class="fas fa-trash" style="margin-right: 6px;"></i>Delete Question
-                                        </button>
-                                    </div>
+                                    <div style="margin-top: auto; width: 100%;">
+    <button type="button" class="delete-question-btn"
+        data-question-id="{{ $question->id }}"
+        style="align-self: flex-start; padding: 10px 20px; background: #FF4D4F; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.2s;">
+        <i class="fas fa-trash" style="margin-right: 6px;"></i>Delete Question
+    </button>
+    </div>
+
+
                                 </div>
 
                                 <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 20px;">
@@ -246,7 +250,7 @@
             <input type="hidden" name="deleted_questions" id="deleted-questions" value="">
 
             <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:30px;">
-                <button type="button" onclick="history.back()"
+                <button type="button" onclick="window.location.href='{{ route('questionnaire.index') }}'"
                         style="padding:12px 24px; background:white; border:1px solid #4880FF; color:#4880FF; border-radius:8px;">Cancel</button>
                 <button type="submit"
                         style="padding:12px 24px; background:#4379EE; color:white; border:none; border-radius:8px;">Save Changes</button>
@@ -272,13 +276,15 @@
         </div>
 
         <div style="margin-bottom: 16px;">
-            <label style="display:block; margin-bottom:8px; font-weight:600;">Criteria</label>
             <div style="display:flex; flex-direction:column; gap:8px;">
-                @foreach(['umum'=>'Umum', 'high'=>'High', 'medium'=>'Medium', 'low'=>'Low'] as $key => $label)
+                @foreach([ 'high'=>'High', 'medium'=>'Medium', 'low'=>'Low'] as $key => $label)
+                <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+                    <label style="font-weight:500;width: 15%">{{ $label }} Criteria</label>
                     <input type="text" name="criteria[{{ $key }}]" 
                            value="{{ old("criteria.$key") }}" required
                            placeholder="{{ $label }} Criteria"
-                           style="width:100%; padding:10px; border:1px solid #4880FF; border-radius:8px;">
+                           style="width:85%; padding:10px; border:1px solid #4880FF; border-radius:8px;">
+                </div>
                 @endforeach
             </div>
         </div>
@@ -296,7 +302,7 @@
         </div>
 
         <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px;">
-            <a href="{{ url()->previous() }}"
+            <a  href="{{ route('questionnaire.index') }}"
                 style="padding:12px 24px; background:white; border:1px solid #4880FF; color:#4880FF; border-radius:8px;">Cancel</a>
             <button type="submit" id="save-btn"
                     style="padding:12px 24px; background:#4379EE; color:white; border:none; border-radius:8px;">Create Category</button>

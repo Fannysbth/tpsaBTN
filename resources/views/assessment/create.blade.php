@@ -62,6 +62,7 @@
                 <option value="low" {{ old("category_level.{$category->id}", $lastLevel) == 'low' ? 'selected' : '' }}>Low</option>
                 <option value="medium" {{ old("category_level.{$category->id}", $lastLevel) == 'medium' ? 'selected' : '' }}>Medium</option>
                 <option value="high" {{ old("category_level.{$category->id}", $lastLevel) == 'high' ? 'selected' : '' }}>High</option>
+                <option value="umum" {{ old("category_level.{$category->id}", $lastLevel) == 'umum' ? 'selected' : '' }}>Umum</option>
             </select>
         </div>
 

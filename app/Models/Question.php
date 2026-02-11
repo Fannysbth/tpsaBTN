@@ -11,6 +11,7 @@ class Question extends Model
 
     protected $fillable = [
         'category_id',
+        'question_no',
         'question_text',
         'question_type',
         'clue',
@@ -19,7 +20,7 @@ class Question extends Model
         'has_attachment',
         'attachment_text',
         'is_active',
-        'order',
+        'order_index',
     ];
 
     protected $casts = [
