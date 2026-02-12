@@ -4,6 +4,7 @@ namespace App\Exports;
 
 use App\Models\Assessment;
 use App\Models\Category;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
@@ -104,7 +105,7 @@ $data[] = $rowData;
                 $rowData = array_merge(
     [
         $question->sub ?? '-',
-        $no++,
+        $question->question_no,
         $question->question_text,
         ':',
         $answer->answer_text
@@ -184,6 +185,9 @@ $data[] = $rowData;
                 for ($r = 2; $r <= $lastRow; $r++) {
                     $cell     = "E{$r}";
                     $question = $this->questionsMap[$r] ?? null;
+                    if ($question) {
+        Log::info("Question {$question->id} options:", $question->options->pluck('option_text')->toArray());
+    }
 
                     // Style default kolom JAWABAN
                     $sheet->getStyle($cell)->getFont()

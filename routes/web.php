@@ -8,9 +8,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\QuestionnaireImportController;
 
 Route::get('/', [DashboardController::class, 'index'])->name('dashboard.index');
-// Route untuk edit assessment
-Route::get('/assessment/{id}/edit', [AssessmentController::class, 'edit'])->name('assessment.edit');
-Route::put('/assessment/{id}', [AssessmentController::class, 'update'])->name('assessment.update');
+
 // Questionnaire Routes
 Route::prefix('questionnaire')->group(function () {
 
@@ -68,22 +66,32 @@ Route::delete('/categories/{id}', [CategoryController::class, 'destroy'])
     ->name('categories.destroy');
 
 
-Route::get('/assessment/export-report', [AssessmentController::class, 'exportReport'])
-    ->name('assessment.export.report');
 
 // Assessment Routes
 Route::prefix('assessment')->group(function () {
+
+    // INDEX & CREATE
     Route::get('/', [AssessmentController::class, 'index'])->name('assessment.index');
     Route::get('/create', [AssessmentController::class, 'create'])->name('assessment.create');
     Route::post('/', [AssessmentController::class, 'store'])->name('assessment.store');
-    Route::get('/{assessment}', [AssessmentController::class, 'show'])
-        ->whereNumber('assessment')
-        ->name('assessment.show');
+
+    // EDIT & UPDATE
+    Route::get('/{assessment}/edit', [AssessmentController::class, 'edit'])->name('assessment.edit');
+    Route::put('/{assessment}', [AssessmentController::class, 'update'])->name('assessment.update');
+
+    // EXPORT / PREVIEW / IMPORT
     Route::get('/{assessment}/export', [AssessmentController::class, 'export'])->name('assessment.export');
     Route::get('/{assessment}/preview', [AssessmentController::class, 'previewExport'])->name('assessment.preview');
     Route::post('/{assessment}/import', [AssessmentController::class, 'import'])->name('assessment.import');
+    Route::get('/export-report', [AssessmentController::class, 'exportReport'])->name('assessment.export.report');
+
+    // DELETE
     Route::delete('/{assessment}', [AssessmentController::class, 'destroy'])->name('assessment.destroy');
 
+    // SHOW harus paling terakhir karena menangkap semua /{assessment}
+    Route::get('/{assessment}', [AssessmentController::class, 'show'])
+        ->whereNumber('assessment')
+        ->name('assessment.show');
 });
 
 Route::get('/questionnaire/export', [QuestionnaireController::class, 'export'])->name('questionnaire.export');

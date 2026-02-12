@@ -86,7 +86,7 @@
                                 <div class="question-number"
                                     style="width: 32px; height: 32px; border-radius: 50%; background: #F0F7FF; 
                                           display: flex; align-items: center; justify-content: center; font-size: 14px; color: #4880FF; font-weight: bold;">
-                                    {{ $questionNumber }}
+                                    {{ $question->question_no}}
                                 </div>
                                 <div>
                                     <div style="font-weight: 600; color: #202224; font-size: 16px;">

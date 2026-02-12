@@ -116,7 +116,7 @@
                         <div style="display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0;">
                             <div class="question-number"
                                 style="width: 32px; height: 32px; border-radius: 50%; background: #F0F7FF; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #4880FF; font-weight: bold; flex-shrink: 0;">
-                                {{ $questionNumber }}
+                                {{ $question->question_no }}
                             </div>
                             <div style="flex: 1; min-width: 0;">
                                 <div
@@ -329,6 +329,29 @@
 
 
 <script>
+    function createOptionElement(questionId, index) {
+    const option = document.createElement('div')
+    option.className = 'option-item'
+    option.style = 'display:flex;gap:12px;align-items:center;'
+
+    option.innerHTML = `
+        <input type="text"
+               name="questions[${questionId}][options][${index}][text]"
+               placeholder="Option text"
+               style="flex:1;padding:10px;border:1px solid #4880FF;border-radius:6px;">
+        <input type="number"
+               name="questions[${questionId}][options][${index}][score]"
+               placeholder="Score"
+               style="width:80px;padding:10px;border:1px solid #4880FF;border-radius:6px;">
+        <button type="button" class="delete-option-btn"
+                style="background:none;border:none;color:#FF4D4F;font-size:18px;">
+            ×
+        </button>
+    `
+
+    return option
+}
+
 function scrollToQuestion(card) {
     card.scrollIntoView({
         behavior: 'smooth',
@@ -353,10 +376,10 @@ function addQuestionByClone() {
     const newQuestionId = 'new_' + Date.now();
     const newCard = lastCard.cloneNode(true);
 
-    // dataset
+    // set dataset
     newCard.dataset.questionId = newQuestionId;
 
-    // nomor baru
+    // update nomor
     const numberEl = newCard.querySelector('.question-number');
     if (numberEl) {
         numberEl.textContent = container.querySelectorAll('.question-card').length + 1;
@@ -366,23 +389,27 @@ function addQuestionByClone() {
     const title = newCard.querySelector('.question-header div div div');
     if (title) title.textContent = 'Untitled Question';
 
-    // reset inputs
+    // reset semua input & textarea
     newCard.querySelectorAll('textarea').forEach(el => el.value = '');
     newCard.querySelectorAll('input').forEach(el => {
         if (['checkbox','radio'].includes(el.type)) el.checked = false;
         else el.value = '';
     });
 
-    // clear options
-    const options = newCard.querySelector('.options-container');
-    if (options) options.innerHTML = '';
-
-    // update name attributes
+    // update semua name attribute ke question baru
     newCard.querySelectorAll('[name]').forEach(el => {
         el.name = el.name.replace(/\[.*?\]/, `[${newQuestionId}]`);
     });
 
-    // reset state
+    // reset options → buat 1 default option
+    const optionsContainer = newCard.querySelector('.options-container');
+    if (optionsContainer) {
+        optionsContainer.innerHTML = '';
+        const firstOption = createOptionElement(newQuestionId, 0);
+        optionsContainer.appendChild(firstOption);
+    }
+
+    // reset state UI
     newCard.classList.remove('active');
     const body = newCard.querySelector('.question-body');
     if (body) body.style.display = '';
@@ -390,10 +417,11 @@ function addQuestionByClone() {
     // append
     container.appendChild(newCard);
 
-    // UX MAGIC ✨
-    newCard.classList.add('active');   // buka
-    scrollToQuestion(newCard);          // scroll ke dia
+    // buka & scroll
+    newCard.classList.add('active');
+    scrollToQuestion(newCard);
 }
+
 
 function openCard(card) {
     card.classList.add('active');
@@ -633,7 +661,7 @@ document.addEventListener('input', function (e) {
 document.querySelectorAll('.question-card').forEach(card => {
     const optionsContainer = card.querySelector('.options-container')
     if (optionsContainer) {
-        card._optionCache = optionsContainer.innerHTML
+        card._optionCache = optionsContainer.cloneNode(true)
     } else {
         card._optionCache = ''
     }

@@ -34,15 +34,9 @@ public function scopeByIndicator($query, $indicator)
     return $query->where(function($q) use ($indicator) {
         $q->whereJsonContains('indicator', $indicator)
           ->orWhere('indicator', 'LIKE', "%{$indicator}%");
-    });
+    })->orderBy('order_index', 'asc'); // ganti "order" -> "order_index"
 }
-//     // app/Models/Question.php
-// public function scopeByIndicator($query, $level)
-// {
-//     if (!$level) return $query;
-    
-//     return $query->whereJsonContains('indicator', $level);
-// }
+
 
 
 

@@ -81,7 +81,7 @@
 
         {{-- INDICATOR FILTER --}}
 <div class="dropdown"  style="display:flex; padding:10px;background:#FFFFFF; border-radius: 10px;
-    border: 1px solid transparent; align-items:center;">
+    border: 1px solid transparent; align-items:center; width:120px; justify-content:center">
     <span
         class="dropdown-toggle filter-item"
         data-bs-toggle="dropdown"
@@ -161,7 +161,7 @@
              data-category-id="{{ $category->id }}"
              data-indicator="{{ implode(',', $indicatorArray) }}">
 
-            <div>{{ $no++ }}</div>
+            <div>{{ $question->question_no ?? '-' }}</div>
             <div>{{ $category->name }}</div>
             <div style="text-align:center;">{{ $question->sub ?? '-' }}</div>
 
@@ -169,6 +169,7 @@
     @php
         $indicators = $indicatorArray;
         $colors = [
+            'umum' => '#34495E',    // abu-abu gelap
             'high' => '#E74C3C',    // merah
             'medium' => '#F1C40F',  // kuning
             'low' => '#2ECC71',     // hijau

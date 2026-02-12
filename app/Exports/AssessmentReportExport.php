@@ -54,7 +54,7 @@ class AssessmentReportExport implements
             $this->no,
             $assessment->company_name,
             optional($assessment->assessment_date)->format('d/m/Y'),
-            $assessment->risk_level_label ? strtoupper($assessment->risk_level_label) : 'Belum Dinilai',
+            $assessment->risk_level && $assessment->risk_level !== '-' ? strtoupper($assessment->risk_level) : 'Belum Dinilai' ,
             $assessment->total_score ?? '-',
         ];
     }

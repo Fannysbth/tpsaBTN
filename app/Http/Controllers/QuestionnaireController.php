@@ -26,87 +26,180 @@ class QuestionnaireController extends Controller
      * INDEX
      * ======================= */
     public function index()
-    {
-        $categories = Category::with([
-            'questions' => fn ($q) => $q->orderBy('order_index')
-        ])->get();
+{
+    $categories = Category::with('questions')->get();
 
-        return view('questionnaire.index', [
-            'categories'     => $categories,
-            'mainCategories' => $categories->take(3),
-            'moreCategories' => $categories->skip(3),
-        ]);
-    }
+    $categories->each(function ($category) {
+
+        $category->questions = $category->questions
+            ->sortBy(function ($q) {
+
+                preg_match('/^(\d+)([a-zA-Z]*)$/', $q->question_no, $matches);
+
+                $number = isset($matches[1]) ? (int) $matches[1] : 0;
+                $suffix = $matches[2] ?? '';
+
+                return [$number, $suffix];
+            })
+            ->values();
+    });
+
+    return view('questionnaire.index', [
+        'categories'     => $categories,
+        'mainCategories' => $categories->take(3),
+        'moreCategories' => $categories->skip(3),
+    ]);
+}
+
 
     /* =======================
      * EDIT ALL
      * ======================= */
     public function editAll()
-    {
-        $categories = Category::with([
-            'questions.options' => fn ($q) => $q->orderBy('order_index')
-        ])->get();
+{
+    $categories = Category::with('questions.options')->get();
 
-        return view('questionnaire.editAll', compact('categories'));
-    }
+    $categories->each(function ($category) {
 
-    /* =======================
-     * UPDATE ALL
-     * ======================= */
-    public function updateAll(Request $request)
-    {
-        DB::beginTransaction();
+        $category->questions = $category->questions
+            ->sortBy(function ($q) {
 
-        try {
-            // DELETE
-            $deletedIds = collect(
-                explode(',', $request->deleted_questions ?? '')
-            )->filter()->map(fn ($id) => (int) $id);
+                preg_match('/^(\d+)([a-zA-Z]*)$/', $q->question_no, $matches);
 
-            if ($deletedIds->isNotEmpty()) {
-                QuestionOption::whereIn('question_id', $deletedIds)->delete();
-                Question::whereIn('id', $deletedIds)->delete();
-            }
+                $number = isset($matches[1]) ? (int) $matches[1] : 0;
+                $suffix = $matches[2] ?? '';
 
-            foreach ($request->questions ?? [] as $data) {
+                return [$number, $suffix];
+            })
+            ->values();
+    });
 
-    if (trim($data['question_text'] ?? '') === '') continue;
-
-    $question = Question::firstOrNew([
-        'category_id' => $data['category_id'],
-        'question_no' => trim($data['question_no']),
-    ]);
-
-    $question->fill([
-        'order_index'     => $data['order_index'] ?? 0,
-        'question_text'   => trim($data['question_text']),
-        'question_type'   => $data['question_type'] ?? 'pilihan',
-        'indicator'       => $data['indicator'] ?? null,
-        'clue'            => $data['clue'] ?? null,
-        'attachment_text' => $data['attachment_text'] ?? null,
-        'has_attachment'  => !empty($data['attachment_text']),
-        'sub'             => $data['sub'] ?? null,
-    ]);
-
-    $question->save();
+    return view('questionnaire.editAll', compact('categories'));
 }
 
-            DB::commit();
-
-            return redirect()
-                ->route('questionnaire.index')
-                ->with('success', 'All changes saved successfully');
-
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            Log::error($e);
-
-            return back()->with('error', 'Failed to save data');
-        }
-    }
 
     /* =======================
-     * STORE QUESTION
+     * UPDATE ALL (CREATE + UPDATE + DELETE)
+     * ======================= */
+    public function updateAll(Request $request)
+{
+    
+
+    DB::beginTransaction();
+
+    try {
+
+        /* =======================
+           DELETE QUESTIONS
+        ======================= */
+        $deletedIds = collect(
+            explode(',', $request->deleted_questions ?? '')
+        )->filter()->map(fn ($id) => (int) $id);
+
+        if ($deletedIds->isNotEmpty()) {
+            QuestionOption::whereIn('question_id', $deletedIds)->delete();
+            Question::whereIn('id', $deletedIds)->delete();
+        }
+
+        /* =======================
+           LOOP QUESTIONS
+        ======================= */
+        foreach ($request->questions ?? [] as $key => $data) {
+
+            if (trim($data['question_text'] ?? '') === '') {
+                continue;
+            }
+
+            /* =======================
+               UPDATE EXISTING
+            ======================= */
+            if (is_numeric($key)) {
+
+                $question = Question::find($key);
+                if (!$question) continue;
+
+                $question->update([
+                    'category_id'     => $data['category_id'],
+                    'question_text'   => trim($data['question_text']),
+                    'question_type'   => $data['question_type'] ?? 'pilihan',
+                    'indicator'       => $data['indicator'] ?? null,
+                    'clue'            => $data['clue'] ?? null,
+                    'attachment_text' => $data['attachment_text'] ?? null,
+                    'has_attachment'  => !empty($data['attachment_text']),
+                    'sub'             => $data['sub'] ?? null,
+                ]);
+
+            } else {
+
+                /* =======================
+                   CREATE NEW QUESTION
+                ======================= */
+
+                $lastNumber = Question::where('category_id', $data['category_id'])
+                    ->whereNotNull('question_no')
+                    ->pluck('question_no')
+                    ->map(fn ($no) => (int) $no)
+                    ->max();
+
+                $nextNumber = $lastNumber ? $lastNumber + 1 : 1;
+
+                $question = Question::create([
+                    'category_id'     => $data['category_id'],
+                    'question_no'     => $nextNumber,
+                    'question_text'   => trim($data['question_text']),
+                    'question_type'   => $data['question_type'] ?? 'pilihan',
+                    'indicator'       => $data['indicator'] ?? null,
+                    'clue'            => $data['clue'] ?? null,
+                    'attachment_text' => $data['attachment_text'] ?? null,
+                    'has_attachment'  => !empty($data['attachment_text']),
+                    'sub'             => $data['sub'] ?? null,
+                ]);
+            }
+
+            /* =======================
+               HANDLE OPTIONS
+            ======================= */
+            if (($data['question_type'] ?? '') === 'pilihan') {
+
+                // Hapus lama dulu
+                $question->options()->delete();
+
+                foreach ($data['options'] ?? [] as $opt) {
+
+                    $text = trim($opt['text'] ?? '');
+
+                    if ($text !== '') {
+                        $question->options()->create([
+                            'option_text' => $text,
+                            'score'       => $opt['score'] ?? 0,
+                        ]);
+                    }
+                }
+
+            } else {
+                // Kalau tipe bukan pilihan → pastikan options kosong
+                $question->options()->delete();
+            }
+        }
+
+        DB::commit();
+
+        return redirect()
+            ->route('questionnaire.index')
+            ->with('success', 'All changes saved successfully');
+
+    } catch (\Throwable $e) {
+
+        DB::rollBack();
+        Log::error($e);
+
+        return back()->with('error', 'Failed to save data');
+    }
+}
+
+
+    /* =======================
+     * STORE QUESTION (MODAL / AJAX)
      * ======================= */
     public function storeQuestion(Request $request)
     {
@@ -114,34 +207,35 @@ class QuestionnaireController extends Controller
 
         try {
             $validated = $request->validate([
-                'category_id'   => 'required|exists:categories,id',
-                'question_no'   => 'required|string',
-                'question_text' => 'required|string',
-                'question_type' => 'required|in:pilihan,isian',
-                'indicator'     => 'nullable',
+                'category_id'     => 'required|exists:categories,id',
+                'question_text'   => 'required|string',
+                'question_type'   => 'required|in:pilihan,isian',
+                'indicator'       => 'nullable',
                 'attachment_text' => 'nullable|string',
-                'clue'          => 'nullable|string',
+                'clue'            => 'nullable|string',
             ]);
 
-            // 🔧 AUTO ORDER KE PALING BAWAH
-            $validated['order_index'] =
-                Question::where('category_id', $validated['category_id'])
-                    ->max('order_index') + 1;
+            $lastNumber = Question::where('category_id', $validated['category_id'])
+                ->whereNotNull('question_no')
+                ->pluck('question_no')
+                ->map(fn ($no) => (int) $no)
+                ->max();
+
+            $nextNumber = $lastNumber ? $lastNumber + 1 : 1;
 
             $question = Question::create([
                 ...$validated,
+                'question_no'    => $nextNumber,
                 'has_attachment' => !empty($validated['attachment_text']),
             ]);
 
-            if (
-                $question->question_type === 'pilihan'
-                && $request->options
-            ) {
+
+            if ($question->question_type === 'pilihan' && $request->options) {
                 foreach ($request->options as $opt) {
                     if (!empty($opt['text'])) {
                         $question->options()->create([
                             'option_text' => $opt['text'],
-                            'score' => $opt['score'] ?? 0,
+                            'score'       => $opt['score'] ?? 0,
                         ]);
                     }
                 }
@@ -169,22 +263,5 @@ class QuestionnaireController extends Controller
         $question->delete();
 
         return back()->with('success', 'Question deleted');
-    }
-
-    /* =======================
-     * UPDATE ORDER (DRAG)
-     * ======================= */
-    public function updateOrder(Request $request)
-    {
-        if (!$request->questions) {
-            return response()->json(['success' => false]);
-        }
-
-        foreach ($request->questions as $q) {
-            Question::where('id', $q['id'])
-                ->update(['order_index' => $q['order']]);
-        }
-
-        return response()->json(['success' => true]);
     }
 }

@@ -117,74 +117,91 @@ public function exportReport(Request $request)
     return view('assessment.create', compact('categories', 'assessment'));
 }
 
-
-   public function store(Request $request)
+public function store(Request $request)
 {
+    $request->validate([
+        'company_name'   => 'required|string|max:255',
+        'category_level' => 'required|array',
+        'category_level.*' => 'in:low,medium,high,umum',
+    ]);
+
+    // debug awal
+    Log::info('Assessment store request', $request->all());
+
     DB::beginTransaction();
 
     try {
-        $request->validate([
-            'company_name'   => 'required|string|max:255',
-            'category_level' => 'required|array',
-        ]);
-
+        // --- Prepare category_scores & answers ---
         $categoryScores = [];
-        $answers = [];
+        $answersToCreate = [];
 
         foreach ($request->category_level as $categoryId => $level) {
-
-            $category = Category::findOrFail($categoryId);
-
-            // SIMPAN CATEGORY SCORE
             $categoryScores[$categoryId] = [
-                'indicator'    => $category->indicator === 'umum' ? 'umum' : $level,
-                'score'        => 0,
+                'score' => 0,
+                'indicator' => $level,
                 'actual_score' => 0,
-                'max_score'    => 0,
+                'max_score' => 0,
             ];
 
-            // QUERY QUESTION
             $questions = Question::where('category_id', $categoryId)
                 ->where('is_active', true)
-                ->when($category->indicator !== 'umum', function ($q) use ($level) {
-                    $q->where('indicator', $level);
-                })
-                ->when($category->indicator === 'umum', function ($q) {
-                    $q->where('indicator', 'umum');
+                ->where(function ($query) use ($level) {
+                    $query->whereJsonContains('indicator', $level)
+                          ->orWhere('indicator', 'LIKE', "%{$level}%");
                 })
                 ->orderBy('order_index')
                 ->get();
 
             foreach ($questions as $question) {
-                $answers[] = [
+                $answersToCreate[] = [
                     'question_id' => $question->id,
                     'answer_text' => null,
-                    'score'       => 0,
+                    'score' => 0,
                 ];
             }
         }
 
-        $assessment = Assessment::create([
-            'company_name'     => $request->company_name,
-            'assessment_date'  => now(),
-            'category_scores'  => $categoryScores,
-            'total_score'      => 0,
-            'risk_level'       => null,
-        ]);
+        // --- Create Assessment ---
+        try {
+            $assessment = Assessment::create([
+                'company_name'    => $request->company_name,
+                'assessment_date' => now(),
+                'total_score'     => 0,
+                'risk_level'      => null,
+                'category_scores' => $categoryScores,
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Assessment create failed: '.$e->getMessage());
+            return back()->with('alert_error', 'Gagal membuat assessment: '.$e->getMessage())->withInput();
+        }
 
-        $assessment->answers()->createMany($answers);
+        // --- Create Answers ---
+        foreach ($answersToCreate as $answerData) {
+            $assessment->answers()->create($answerData);
+        }
 
         DB::commit();
 
-        return redirect()->route('assessment.index')
-            ->with('alert_success', 'Assessment berhasil ditambahkan');
+        // --- Redirect atau AJAX response ---
+        if ($request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Assessment berhasil ditambahkan',
+                'redirect' => route('assessment.show', $assessment->id)
+            ]);
+        }
 
-    } catch (\Throwable $e) {
+        return redirect()->route('assessment.show', $assessment->id)
+                         ->with('alert_success', 'Assessment berhasil ditambahkan');
+
+    } catch (\Exception $e) {
         DB::rollBack();
-        return back()->with('alert_error', $e->getMessage());
+        Log::error('Assessment store error: '.$e->getMessage());
+        return back()->with('alert_error', 'Gagal menambahkan assessment: '.$e->getMessage())
+                     ->withInput();
     }
 }
-
 
 public function edit($id)
 {
@@ -209,7 +226,7 @@ public function update(Request $request, $id)
     $validated = $request->validate([
         'company_name' => 'required|string|max:255',
         'category_level' => 'required|array',
-        'category_level.*' => 'in:low,medium,high'
+        'category_level.*' => 'in:low,medium,high,umum'
     ]);
 
     DB::beginTransaction();
@@ -236,11 +253,13 @@ public function update(Request $request, $id)
 
             // Ambil pertanyaan sesuai indikator
             $questions = Question::where('category_id', $categoryId)
-    ->where('is_active', true)
-    ->where('indicator', $level)
-    ->orderBy('order_index')
-    ->get();
-
+                ->where('is_active', true)
+                ->where(function($query) use ($level) {
+                    $query->whereJsonContains('indicator', $level)
+                          ->orWhere('indicator', 'LIKE', "%{$level}%");
+                })
+                ->orderBy('order_index')
+                ->get();
 
 
 
@@ -340,14 +359,22 @@ public function destroy(Assessment $assessment)
 {
     $assessment->load('answers.question.category', 'answers.question.options');
 
-    $categories = Category::with(['questions' => function ($q) use ($assessment) {
+    $categories = Category::with(['questions' => function($q) use ($assessment) {
         $q->where('is_active', true)
-          ->orderBy('order_index');
+          ->orderBy('order_index')
+          ->where(function($query) use ($assessment) {
+              // Ambil indikator yang dipilih untuk kategori ini
+              $categoryId = $query->getModel()->category_id;
+              $selectedIndicator = $assessment->category_scores[$categoryId]['indicator'] ?? null;
+              
+              if ($selectedIndicator) {
+                  $query->whereJsonContains('indicator', $selectedIndicator);
+              }
+          });
     }])->get();
 
     return view('assessment.show', compact('assessment', 'categories'));
 }
-
 
 
 
@@ -368,16 +395,50 @@ public function destroy(Assessment $assessment)
     }
 
     public function import(Request $request, Assessment $assessment)
-    {
-        $request->validate([
-            'excel_file' => 'required|mimes:xlsx,xls'
-        ]);
+{
+    $request->validate([
+        'excel_file' => 'required|mimes:xlsx,xls',
+    ]);
 
-        Excel::import(new AssessmentImport($assessment), $request->file('excel_file'));
+    try {
+        $file = $request->file('excel_file');
 
-        
+        // --- Load Excel ---
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getPathname());
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // --- Ambil header (baris pertama) ---
+        $header = [];
+        foreach ($sheet->getRowIterator(1, 1) as $row) {
+            $cellIterator = $row->getCellIterator();
+            $cellIterator->setIterateOnlyExistingCells(false);
+            foreach ($cellIterator as $cell) {
+                $header[] = trim($cell->getValue());
+            }
+        }
+
+        // --- Kolom wajib sesuai template ---
+        $requiredColumns = ['SUB KATEGORI', 'NO', 'PERTANYAAN', ':', 'JAWABAN', 'ATTACHMENT'];
+
+        $missingColumns = array_diff($requiredColumns, $header);
+        if (!empty($missingColumns)) {
+            return redirect()->back()->with('alert_error', 
+                'Template Excel salah. Kolom hilang: ' . implode(', ', $missingColumns));
+        }
+
+        // --- Import data jika header valid ---
+        Excel::import(new AssessmentImport($assessment), $file);
+
+        // --- Hitung ulang category scores ---
         $assessment->calculateCategoryScores();
 
-        return redirect()->back()->with('success', 'Data berhasil diimport');
+        return redirect()->back()->with('success', 'Data berhasil diimport sesuai template.');
+    } catch (\PhpOffice\PhpSpreadsheet\Reader\Exception $e) {
+        return redirect()->back()->with('alert_error', 'File Excel tidak bisa dibaca. Pastikan file valid.');
+    } catch (\Exception $e) {
+        Log::error('Assessment import error: ' . $e->getMessage());
+        return redirect()->back()->with('alert_error', 'Terjadi kesalahan saat import: '.$e->getMessage());
     }
+}
+
 }
