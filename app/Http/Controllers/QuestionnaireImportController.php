@@ -214,59 +214,78 @@ class QuestionnaireImportController extends Controller
     {
         DB::beginTransaction();
 
-        try {
+try {
 
-            foreach ($request->questions as $q) {
+    foreach ($request->questions as $q) {
 
-                if (!($q['import'] ?? false)) continue;
+        if (!($q['import'] ?? false)) continue;
 
-                if ($q['action'] === 'delete') {
-                    Question::find($q['id'])?->delete();
-                    continue;
-                }
+        // DELETE
+        if ($q['action'] === 'delete') {
+            $question = Question::find($q['id']);
+            $question?->options()->delete(); // hapus opsi dulu
+            $question?->delete();
+            continue;
+        }
 
-                if ($q['action'] === 'update') {
-                    Question::find($q['id'])?->update([
-                        'question_text'   => $q['question_text'],
-                        'question_type'   => $q['question_type'],
-                        'category_id'     => $q['category_id'],
-                        'indicator'       => $q['indicator'] ?? [],
-                        'sub'             => $q['sub'],
-                        'attachment_text' => $q['attachment_text'],
-                        'has_attachment'  => !empty($q['attachment_text']),
-                        'clue' => $q['clue'] ?? null,
-                        'question_no'     => $q['question_no'],
-                        'order_index'     => $q['order_index'] ?? 0,
-                    ]);
-                    continue;
-                }
+        // CREATE / UPDATE
+        if ($q['action'] === 'update') {
+            $question = Question::find($q['id']);
+            $question->update([
+                'question_text'   => $q['question_text'],
+                'question_type'   => $q['question_type'],
+                'category_id'     => $q['category_id'],
+                'sub'             => $q['sub'],
+                'attachment_text' => $q['attachment_text'],
+                'has_attachment'  => !empty($q['attachment_text']),
+                'clue'            => $q['clue'] ?? null,
+                'question_no'     => $q['question_no'],
+                'order_index'     => $q['order_index'] ?? 0,
+            ]);
+        }
 
-                if ($q['action'] === 'create') {
-                    Question::create([
-                        'question_text'   => $q['question_text'],
-                        'question_type'   => $q['question_type'],
-                        'category_id'     => $q['category_id'],
-                        'indicator'       => $q['indicator'] ?? [],
-                        'sub'             => $q['sub'],
-                        'attachment_text' => $q['attachment_text'],
-                        'has_attachment'  => !empty($q['attachment_text']),
-                        'clue' => $q['clue'] ?? null,
-                        'question_no'     => $q['question_no'],
-                        'order_index'     => $q['order_index'] ?? 0,
+        if ($q['action'] === 'create') {
+            $question = Question::create([
+                'question_text'   => $q['question_text'],
+                'question_type'   => $q['question_type'],
+                'category_id'     => $q['category_id'],
+                'sub'             => $q['sub'],
+                'attachment_text' => $q['attachment_text'],
+                'has_attachment'  => !empty($q['attachment_text']),
+                'clue'            => $q['clue'] ?? null,
+                'question_no'     => $q['question_no'],
+                'order_index'     => $q['order_index'] ?? 0,
+            ]);
+        }
+
+        // SIMPAN OPTIONS jika tipe 'pilihan'
+        if ($question->question_type === 'pilihan' && !empty($q['options'])) {
+            // hapus opsi lama jika update
+            if ($q['action'] === 'update') {
+                $question->options()->delete();
+            }
+
+            foreach ($q['options'] as $opt) {
+                if (!empty($opt['text'])) {
+                    $question->options()->create([
+                        'option_text' => $opt['text'],
+                        'score'       => $opt['score'] ?? 0,
                     ]);
                 }
             }
-
-            DB::commit();
-
-            return redirect()
-                ->route('questionnaire.index')
-                ->with('success', 'Sinkronisasi Excel berhasil');
-
-        } catch (\Throwable $e) {
-
-            DB::rollBack();
-            throw $e;
         }
+    }
+
+    DB::commit();
+
+    return redirect()
+        ->route('questionnaire.index')
+        ->with('success', 'Sinkronisasi Excel berhasil');
+
+} catch (\Throwable $e) {
+    DB::rollBack();
+    throw $e;
+}
+
     }
 }
