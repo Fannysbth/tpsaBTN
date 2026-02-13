@@ -50,12 +50,12 @@ class QuestionnaireImport implements ToCollection
 
         // 3️⃣ Validasi header tetap A–F
         $expectedHeaders = [
-            'Sub',
-            'No',
-            'Question',
+            '',
+            '',
+            '',
             '', // D bebas
-            'Answer/Option',
-            'Score'
+            '',
+            ''
         ];
 
         foreach ($expectedHeaders as $index => $expected) {

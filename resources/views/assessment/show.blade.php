@@ -11,7 +11,8 @@
 </x-header>
 
 <div style="background: #F5F6FA; padding: 20px;">
-    @if(session('import_errors'))
+    {{-- Modal untuk menampilkan error import --}}
+@if(session('import_errors'))
 <div class="modal fade" id="importErrorModal" tabindex="-1" aria-labelledby="importErrorModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-danger">
@@ -32,7 +33,18 @@
     </div>
   </div>
 </div>
+
+{{-- Script untuk otomatis tampil --}}
+@push('scripts')
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        var importErrorModal = new bootstrap.Modal(document.getElementById('importErrorModal'));
+        importErrorModal.show();
+    });
+</script>
+@endpush
 @endif
+
 
     {{-- COMPANY INFO --}}
     <div class="company-header">
