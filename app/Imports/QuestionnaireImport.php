@@ -28,18 +28,80 @@ class QuestionnaireImport implements ToCollection
 
     public function collection(Collection $rows)
     {
+        /**
+         * ===================================================
+         * VALIDASI STRUKTUR FILE (TAMBAHAN)
+         * ===================================================
+         */
+
+        // 1️⃣ Minimal baris
         if ($rows->count() < 3) {
-            $this->errors[] = 'Format Excel tidak valid.';
+            $this->errors[] = 'Format Excel tidak valid. Minimal harus ada header dan 1 data.';
             return;
         }
 
         $headerRow = $rows[1];
+
+        // 2️⃣ Minimal jumlah kolom
+        if (count($headerRow) < 7) {
+            $this->errors[] = 'Jumlah kolom tidak sesuai template. Silakan gunakan file export resmi.';
+            return;
+        }
+
+        // 3️⃣ Validasi header tetap A–F
+        $expectedHeaders = [
+            'Sub',
+            'No',
+            'Question',
+            '', // D bebas
+            'Answer/Option',
+            'Score'
+        ];
+
+        foreach ($expectedHeaders as $index => $expected) {
+
+            if ($expected === '') continue;
+
+            $actual = trim((string)($headerRow[$index] ?? ''));
+
+            if (strcasecmp($actual, $expected) !== 0) {
+                $this->errors[] =
+                    "Format kolom salah pada kolom " .
+                    chr(65 + $index) .
+                    ". Ditemukan '{$actual}', seharusnya '{$expected}'.";
+            }
+        }
+
         $lastColIndex = count($headerRow) - 1;
 
         $this->attachmentCol = $lastColIndex;
         $this->indicatorEndCol = $lastColIndex - 1;
 
-        // mapping category sekali saja (lebih cepat)
+        // 4️⃣ Validasi minimal ada indicator header
+        $indicatorCount = 0;
+
+        for ($col = $this->indicatorStartCol; $col <= $this->indicatorEndCol; $col++) {
+            $header = trim((string)($headerRow[$col] ?? ''));
+            if ($header !== '') {
+                $indicatorCount++;
+            }
+        }
+
+        if ($indicatorCount === 0) {
+            $this->errors[] = 'Indicator tidak ditemukan pada header Excel.';
+        }
+
+        // ❗ STOP kalau ada error struktur
+        if (!empty($this->errors)) {
+            return;
+        }
+
+        /**
+         * ===================================================
+         * LOGIC ASLI KAMU (TIDAK DIUBAH)
+         * ===================================================
+         */
+
         $categoryMap = Category::pluck('id', 'name')->toArray();
 
         $currentCategoryId = null;
@@ -61,9 +123,7 @@ class QuestionnaireImport implements ToCollection
             $attachment = $row[$lastCol] ?? null;
 
             /**
-             * ==============================
              * CATEGORY HEADER
-             * ==============================
              */
             if ($A !== '' && $B === '' && $C === '') {
 
@@ -80,9 +140,7 @@ class QuestionnaireImport implements ToCollection
             if (!$currentCategoryId) continue;
 
             /**
-             * ==============================
              * PARSE INDICATOR (V)
-             * ==============================
              */
             $indicator = [];
 
@@ -96,10 +154,7 @@ class QuestionnaireImport implements ToCollection
             }
 
             /**
-             * ==============================
-             * QUESTION UTAMA (FIXED)
-             * ==============================
-             * B dan C tidak kosong → pasti question
+             * QUESTION UTAMA
              */
             if ($B !== '' && $C !== '') {
 
@@ -127,9 +182,7 @@ class QuestionnaireImport implements ToCollection
             }
 
             /**
-             * ==============================
              * OPTION LANJUTAN
-             * ==============================
              */
             if (
                 $currentIndex !== null &&
@@ -166,16 +219,10 @@ class QuestionnaireImport implements ToCollection
         }
 
         if (empty($this->excelQuestions)) {
-            $this->errors[] = '0 question terbaca dari Excel.';
+            $this->errors[] = '0 question terbaca dari Excel. Pastikan format sesuai template.';
             return;
         }
 
-        /**
-         * ==============================
-         * SIMPLIFIED PREVIEW
-         * (Controller yang handle diff)
-         * ==============================
-         */
         $this->importData = $this->excelQuestions;
     }
 

@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 class AssessmentImport implements ToCollection
 {
     protected Assessment $assessment;
+    
 
     public function __construct(Assessment $assessment)
     {

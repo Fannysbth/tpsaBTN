@@ -11,6 +11,28 @@
 </x-header>
 
 <div style="background: #F5F6FA; padding: 20px;">
+    @if(session('import_errors'))
+<div class="modal fade" id="importErrorModal" tabindex="-1" aria-labelledby="importErrorModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-danger">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="importErrorModalLabel">Import Errors</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <ul>
+          @foreach(session('import_errors') as $error)
+            <li>{{ $error }}</li>
+          @endforeach
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+@endif
 
     {{-- COMPANY INFO --}}
     <div class="company-header">

@@ -29,6 +29,28 @@ class AssessmentExport implements
     protected int $categoryColumnCount = 0;
     protected int $lastTableRow = 0;
     protected bool $hasScore = false;
+    /**
+ * Sort alphanumeric (1, 1a, 1b, 2, 3a, ...)
+ */
+private function alphanumericSort(string $a, string $b): int
+{
+    // Pisahkan angka dan huruf
+    preg_match('/^(\d+)([a-z]*)$/i', $a, $matchA);
+    preg_match('/^(\d+)([a-z]*)$/i', $b, $matchB);
+
+    $numA = isset($matchA[1]) ? (int)$matchA[1] : 0;
+    $numB = isset($matchB[1]) ? (int)$matchB[1] : 0;
+
+    if ($numA !== $numB) {
+        return $numA <=> $numB;
+    }
+
+    $strA = isset($matchA[2]) ? $matchA[2] : '';
+    $strB = isset($matchB[2]) ? $matchB[2] : '';
+
+    return strcmp($strA, $strB);
+}
+
 
 
     public function __construct(Assessment $assessment)
@@ -57,82 +79,85 @@ class AssessmentExport implements
     }
 
     private function lastMatrixColumnLetter(): string
-    {
-        return Coordinate::stringFromColumnIndex($this->matrixColCount());
-    }
+{
+    $colCount = 6 + $this->categoryColumnCount;
+    if ($this->hasScore) $colCount += 1;
+    return Coordinate::stringFromColumnIndex($colCount);
+}
 
     /* =======================
      * Collection (DATA MATRIX)
      * ======================= */
     public function collection()
-    {
+{
+    $this->categoryColumnCount = Category::count() * 3;
 
-        $this->categoryColumnCount = Category::count() * 3;
+    $data = [];
+    $row  = 2;
 
-        $data = [];
-        $row  = 2;
+    $grouped = $this->assessment->answers
+        ->groupBy(fn ($a) => $a->question->category_id);
 
-        $grouped = $this->assessment->answers
-            ->groupBy(fn ($a) => $a->question->category_id);
+    $no = 1;
 
-        $no = 1;
+    foreach ($grouped as $categoryId => $answers) {
+    $category  = $answers->first()->question->category;
+    $indicator = $this->assessment->category_scores[$categoryId]['indicator'] ?? null;
+    $categoryScore = $this->assessment->category_scores[$categoryId]['score'] ?? null;
 
-        foreach ($grouped as $categoryId => $answers) {
-            $category  = $answers->first()->question->category;
-            $indicator = $this->assessment->category_scores[$categoryId]['indicator'] ?? null;
-            $score     = $this->assessment->category_scores[$categoryId]['score'] ?? null;
+    // ===== ROW JUDUL CATEGORY =====
+    $rowData = [
+        'Kategori: ' . $category->name . ' (Indikator: ' . strtoupper((string) $indicator) . ')',
+        '', '', '', '', '' // B–F kosong karena A–F merge nanti
+    ];
 
-            // ===== ROW JUDUL CATEGORY =====
-            $rowData = array_merge(
-    ['Kategori: ' . $category->name . ' (Indikator: ' . strtoupper((string) $indicator) . ')'],
-    $this->emptyCols($this->categoryColumnCount)
-);
+    // Kolom G → SCORE kategori
+    if ($this->hasScore) {
+        $rowData[] = $categoryScore ?? 0;
+    }
 
-if ($this->hasScore) {
-    $rowData[] = $score;
-}
+    // Kolom tambahan kosong untuk kategori (H ke kanan)
+    $rowData = array_merge($rowData, $this->emptyCols($this->categoryColumnCount));
 
-$data[] = $rowData;
+    $data[] = $rowData;
+    $this->categoryRowMap[$categoryId] = $row;
+    $row++;
 
+    // SORT jawaban
+    $answers = $answers->sort(fn($a, $b) => $this->alphanumericSort($a->question->question_no, $b->question->question_no));
 
-            $this->categoryRowMap[$categoryId] = $row;
-            $row++;
+    // ===== ROW PERTANYAAN =====
+    foreach ($answers as $answer) {
+        $question = $answer->question;
 
-            // ===== ROW PERTANYAAN =====
-            foreach ($answers as $answer) {
-                $question = $answer->question;
+        $rowData = [
+            $question->sub ?? '-',
+            $question->question_no,
+            $question->question_text,
+            ':',
+            $answer->answer_text ?? ($question->clue ?? '-- Pilih Jawaban --'),
+            $question->has_attachment ? ($question->attachment_text ?: '-') : '-',
+        ];
 
-                $rowData = array_merge(
-    [
-        $question->sub ?? '-',
-        $question->question_no,
-        $question->question_text,
-        ':',
-        $answer->answer_text
-            ?? ($question->clue ?? '-- Pilih Jawaban --'),
-        $question->has_attachment
-            ? ($question->attachment_text ?: '-')
-            : '-',
-    ],
-    $this->emptyCols($this->categoryColumnCount)
-);
-
-if ($this->hasScore) {
-    $rowData[] = $answer->score ?? null;
-}
-
-$data[] = $rowData;
-
-
-                $this->questionsMap[$row] = $question;
-                $row++;
-            }
+        // Kolom G → SCORE jawaban
+        if ($this->hasScore) {
+            $rowData[] = $answer->score ?? 0;
         }
 
-        $this->lastTableRow = $row - 1;
+        // Kolom tambahan kosong untuk kategori
+        $rowData = array_merge($rowData, $this->emptyCols($this->categoryColumnCount));
 
-        return collect($data);
+        $data[] = $rowData;
+        $this->questionsMap[$row] = $question;
+        $row++;
     }
+}
+
+
+    $this->lastTableRow = $row - 1;
+
+    return collect($data);
+}
 
     /* =======================
      * Headings
@@ -177,8 +202,17 @@ $data[] = $rowData;
                         ],
                         'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
                     ]);
+                    if ($this->hasScore) {
+                        $headings[] = 'SCORE';
+                        $sheet->getStyle("G{$row}")->applyFromArray([
+                            'font' => ['bold' => true],
+                            'fill' => [
+                                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                                'startColor' => ['argb' => 'FFCAEDFB'],
+                            ],
+                            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
+                        ]);}
                 }
-
                 /* =======================
                  * DROPDOWN & FONT
                  * ======================= */
@@ -261,33 +295,45 @@ $data[] = $rowData;
      * Styles & Width
      * ======================= */
     public function styles(Worksheet $sheet)
-    {
-        $lastRow = $this->lastTableRow;
+{
+    $lastRow = $this->lastTableRow;
 
-        // HEADER
-        $sheet->getStyle("A1:F1")->applyFromArray([
-            'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
-            'fill' => [
-                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                'startColor' => ['argb' => 'FF0070C0'],
-            ],
+    // HEADER
+    $sheet->getStyle("A1:G1")->applyFromArray([
+        'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+        'fill' => [
+            'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+            'startColor' => ['argb' => 'FF0070C0'],
+        ],
+        'alignment' => [
+            'wrapText' => true,
+            'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+        ],
+        'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
+    ]);
+
+    // DATA
+    $sheet->getStyle("A2:G{$lastRow}")->applyFromArray([
+        'alignment' => [
+            'wrapText' => true,
+            'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP,
+        ],
+        'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
+    ]);
+
+    if ($this->hasScore) {
+        $scoreCol = $this->lastMatrixColumnLetter(); // kolom terakhir
+        $sheet->getStyle("{$scoreCol}2:{$scoreCol}{$lastRow}")->applyFromArray([
             'alignment' => [
-                'wrapText' => true,
-                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
                 'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-            ],
-            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
-        ]);
-
-        // DATA
-        $sheet->getStyle("A2:F{$lastRow}")->applyFromArray([
-            'alignment' => [
-                'wrapText' => true,
                 'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP,
             ],
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
         ]);
     }
+}
+
 
     public function columnWidths(): array
     {
@@ -300,4 +346,6 @@ $data[] = $rowData;
             'F' => 30,
         ];
     }
+
+    
 }

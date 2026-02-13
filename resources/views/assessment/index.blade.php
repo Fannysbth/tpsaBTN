@@ -9,6 +9,36 @@
 </x-header>
 
 <div class="assessment-page">
+    @if(session('import_errors'))
+<div class="modal fade" id="importErrorModal" tabindex="-1" aria-labelledby="importErrorModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-danger">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="importErrorModalLabel">Import Errors</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <ul>
+          @foreach(session('import_errors') as $error)
+            <li>{{ $error }}</li>
+          @endforeach
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var importErrorModal = new bootstrap.Modal(document.getElementById('importErrorModal'));
+  importErrorModal.show();
+});
+</script>
+@endif
+
     <div class="toolbar" >
     <a href="{{ route('assessment.create') }}" class="btn-edit">
         <i class="fas fa-plus"></i>
@@ -49,17 +79,7 @@
 </form>
 </div>
 
-@if(session('success'))
-    <div style="background:#d4edda;color:#155724;padding:10px;margin-bottom:10px;border-radius:6px;">
-        {{ session('success') }}
-    </div>
-@endif
 
-@if(session('error'))
-    <div style="background:#f8d7da;color:#721c24;padding:10px;margin-bottom:10px;border-radius:6px;">
-        {{ session('error') }}
-    </div>
-@endif
 
 {{-- ASSESSMENT TABLE --}}
 <div class="question-card" style=" width:100%; margin:10px 100px 0 0;">

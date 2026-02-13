@@ -32,6 +32,12 @@
 
         {{-- QUESTIONS CONTAINER --}}
         <div class="questions-container" id="questions-container">
+              @if(count($importData) === 0)
+        <div class="no-changes" style="text-align:center; padding:40px;">
+            <h3>Tidak ada perubahan terdeteksi</h3>
+            <p>File Excel yang diupload sama dengan data di database.</p>
+        </div>
+    @else
             @php
                 $actionColors = [
                     'add' => '#E7F1FF',
@@ -98,21 +104,14 @@
                     </div>
 
                     <label class="switch">
-                        @if($isDeleted)
-                        <input type="checkbox"
-                               name="questions[{{ $i }}][import]"
-                               checked
-                               disabled>
-                        <span class="slider deleted"></span>
-                        @else
-                        <input type="checkbox"
-                               name="questions[{{ $i }}][import]"
-                               checked
-                               class="question-checkbox"
-                               data-question-index="{{ $i }}">
-                        <span class="slider"></span>
-                        @endif
-                    </label>
+    <input type="checkbox"
+           name="questions[{{ $i }}][import]"
+           class="question-checkbox"
+           data-question-index="{{ $i }}"
+           {{ !$isDeleted ? 'checked' : '' }}>
+    <span class="slider {{ $isDeleted ? 'deleted' : '' }}"></span>
+</label>
+
                 </div>
 
                 {{-- CARD BODY - SEMUA CARD DEFAULT TERTUTUP --}}
@@ -127,8 +126,7 @@
                     <input type="hidden" name="questions[{{ $i }}][question_no]" value="{{ $questionNo }}">
                     @endif
 
-                    @if($isDeleted)
-                    {{-- DELETED QUESTION VIEW --}}
+                    {{-- @if($isDeleted)
                         <div class="deleted-info-grid">
                             <div class="deleted-info-item">
                                 <label>Question</label>
@@ -149,7 +147,7 @@
                         </div>
                    
                     
-                    @else
+                    @else --}}
                     {{-- NORMAL QUESTION VIEW (NEW/UPDATE) --}}
                     <div class="question-form-grid">
                         {{-- LEFT COLUMN --}}
@@ -163,58 +161,74 @@
 
                             {{-- ANSWER SECTION --}}
                             <div class="answer-section" id="answer-section-{{ $i }}">
-                                @if(($q['question_type'] ?? null) === 'pilihan')
-                                <div class="options-section">
-                                    <div class="options-header">
-                                        <label class="form-label">Options</label>
-                                        <span class="score-badge">
-                                            Score: {{ collect($q['options'] ?? [])->sum('score') }}
-                                        </span>
-                                    </div>
-                                    <div class="options-container" id="options-{{ $i }}">
-                                        @foreach($q['options'] ?? [] as $oi => $opt)
-                                        <div class="option-item">
-                                            <div class="option-number">{{ $oi + 1 }}.</div>
-                                            <input type="text"
-                                                   name="questions[{{ $i }}][options][{{ $oi }}][text]"
-                                                   value="{{ $opt['text'] ?? '' }}"
-                                                   placeholder="Option text"
-                                                   class="option-input">
-                                            <input type="number"
-                                                   name="questions[{{ $i }}][options][{{ $oi }}][score]"
-                                                   value="{{ $opt['score'] ?? '' }}"
-                                                   placeholder="Score"
-                                                   min="0"
-                                                   step="1"
-                                                   class="option-score">
-                                            @if(count($q['options'] ?? []) > 1)
-                                            <button type="button"
-                                                    onclick="removeOption(this)"
-                                                    class="btn-remove-option">
-                                                    <i class="fas fa-times"></i>
-                                            </button>
-                                            @endif
-                                        </div>
-                                        @endforeach
-                                    </div>
-                                    <button type="button"
-                                            onclick="addOption({{ $i }})"
-                                            class="btn-add-option">
-                                            <i class="fas fa-plus"></i>
-                                            <span>Add Option</span>
-                                    </button>
-                                </div>
-                                @else
-                                <div class="form-group">
-                                    <label class="form-label">Answer Clue</label>
-                                    <input type="text"
-                                           class="form-input clue-input"
-                                           name="questions[{{ $i }}][clue]"
-                                           value="{{ $q['clue'] ?? '' }}"
-                                           placeholder="Enter answer clue">
-                                </div>
-                                @endif
-                            </div>
+
+    {{-- OPTIONS --}}
+    <div class="options-section"
+         id="options-wrapper-{{ $i }}"
+         style="{{ ($q['question_type'] ?? '') === 'pilihan' ? '' : 'display:none;' }}">
+
+        <div class="options-header">
+            <label class="form-label">Options</label>
+            <span class="score-badge">
+                Score: {{ collect($q['options'] ?? [])->sum('score') }}
+            </span>
+        </div>
+
+        <div class="options-container" id="options-{{ $i }}">
+            @foreach($q['options'] ?? [] as $oi => $opt)
+            <div class="option-item">
+                <div class="option-number">{{ $oi + 1 }}.</div>
+
+                <input type="text"
+                       name="questions[{{ $i }}][options][{{ $oi }}][text]"
+                       value="{{ $opt['text'] ?? '' }}"
+                       placeholder="Option text"
+                       class="option-input">
+
+                <input type="number"
+                       name="questions[{{ $i }}][options][{{ $oi }}][score]"
+                       value="{{ $opt['score'] ?? '' }}"
+                       placeholder="Score"
+                       min="0"
+                       step="1"
+                       class="option-score">
+
+                @if(count($q['options'] ?? []) > 1)
+                <button type="button"
+                        onclick="removeOption(this)"
+                        class="btn-remove-option">
+                        <i class="fas fa-times"></i>
+                </button>
+                @endif
+            </div>
+            @endforeach
+        </div>
+
+        <button type="button"
+                onclick="addOption({{ $i }})"
+                class="btn-add-option">
+                <i class="fas fa-plus"></i>
+                <span>Add Option</span>
+        </button>
+    </div>
+
+
+    {{-- CLUE --}}
+    <div class="form-group"
+         id="clue-wrapper-{{ $i }}"
+         style="{{ ($q['question_type'] ?? '') === 'isian' ? '' : 'display:none;' }}">
+
+        <label class="form-label">Answer Clue</label>
+
+        <input type="text"
+               class="form-input clue-input"
+               name="questions[{{ $i }}][clue]"
+               value="{{ $q['clue'] ?? '' }}"
+               placeholder="Enter answer clue">
+    </div>
+
+</div>
+
                         </div>
 
                         {{-- RIGHT COLUMN --}}
@@ -274,10 +288,11 @@
                             </div>
                         </div>
                     </div>
-                    @endif
+                    {{-- @endif --}}
                 </div>
             </div>
             @endforeach
+            @endif
         </div>
 
         {{-- FOOTER --}}
@@ -302,7 +317,7 @@
             
             <div class="footer-right">
                 <button type="button"
-                        onclick="addNewQuestion()"
+                        onclick="addQuestion()"
                         class="btn-secondary">
                         <i class="fas fa-plus"></i>
                         <span>Add Question</span>
@@ -319,6 +334,296 @@
         </form>
     </div>
 </div>
+
+<script>
+let questionIndex = {{ count($importData) }};
+
+function addQuestion() {
+
+    const container = document.getElementById('questions-container');
+
+    const index = questionIndex;
+
+    const html = `
+    <div class="question-card import-card"
+     data-question-index="${index}"
+     data-action="create">
+
+    <!-- HEADER -->
+    <div class="question-card-header">
+        <div class="question-header-left">
+            <div class="question-number">NEW</div>
+            <div class="question-info">
+                <div class="question-title-row">
+                    <span class="action-icon">➕</span>
+                    <span class="question-title">New Question</span>
+                </div>
+                <div class="question-meta">
+                    <span class="action-badge add">New Question</span>
+                    <span class="meta-divider">•</span>
+                    <span class="question-type">Text Answer</span>
+                    <span class="meta-divider">•</span>
+                    <span class="question-category">-</span>
+                </div>
+            </div>
+        </div>
+
+        <label class="switch">
+            <input type="checkbox"
+       name="questions[${index}][import]"
+       class="question-checkbox"
+       data-question-index="${index}"
+       checked>
+<span class="slider"></span>
+        </label>
+    </div>
+
+    <!-- BODY -->
+    <div class="question-card-body" style="display:block">
+
+        <input type="hidden"
+               name="questions[${index}][action]"
+               value="create">
+
+        <div class="question-form-grid">
+
+            <!-- LEFT -->
+            <div class="form-left">
+
+                <div class="form-group">
+                    <label class="form-label">Question</label>
+                    <textarea class="form-textarea question-text"
+                              rows="3"
+                              name="questions[${index}][question_text]"
+                              placeholder="Enter question"></textarea>
+                </div>
+
+                <!-- Answer Section -->
+                <div class="answer-section"
+     id="answer-section-${index}">
+
+    <!-- OPTIONS -->
+    <div class="options-section"
+         id="options-wrapper-${index}"
+         style="display:none;">
+
+        <div class="options-header">
+            <label class="form-label">Options</label>
+            <span class="score-badge">Score: 0</span>
+        </div>
+
+        <div class="options-container"
+             id="options-${index}">
+        </div>
+
+        <button type="button"
+                onclick="addOption(${index})"
+                class="btn-add-option"
+                style="margin-top:10px;">
+            <i class="fas fa-plus"></i>
+            <span>Add Option</span>
+        </button>
+    </div>
+
+    <!-- CLUE -->
+    <div class="form-group"
+         id="clue-wrapper-${index}">
+
+        <label class="form-label">Answer Clue</label>
+        <input type="text"
+               class="form-input clue-input"
+               name="questions[${index}][clue]"
+               placeholder="Enter answer clue">
+    </div>
+
+</div>
+
+            </div>
+
+            <!-- RIGHT -->
+            <div class="form-right">
+
+                <div class="form-group">
+                    <label class="form-label">Type</label>
+                    <select class="form-select question-type-select"
+                            name="questions[${index}][question_type]"
+                            onchange="changeQuestionType(${index}, this.value)">
+                        <option value="isian">Text Answer</option>
+                        <option value="pilihan">Multiple Choice</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select class="form-select"
+                            name="questions[${index}][category_id]">
+                        @foreach($categories as $cat)
+                            <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Indicator</label>
+                    <div class="indicators-grid">
+                        <label class="checkbox-label">
+                            <input type="checkbox"
+                                   name="questions[${index}][indicator][]"
+                                   value="umum">
+                            <span class="checkmark"></span>
+                            <span class="checkbox-text">Umum</span>
+                        </label>
+
+                        <label class="checkbox-label">
+                            <input type="checkbox"
+                                   name="questions[${index}][indicator][]"
+                                   value="high">
+                            <span class="checkmark"></span>
+                            <span class="checkbox-text">High</span>
+                        </label>
+
+                        <label class="checkbox-label">
+                            <input type="checkbox"
+                                   name="questions[${index}][indicator][]"
+                                   value="medium">
+                            <span class="checkmark"></span>
+                            <span class="checkbox-text">Medium</span>
+                        </label>
+
+                        <label class="checkbox-label">
+                            <input type="checkbox"
+                                   name="questions[${index}][indicator][]"
+                                   value="low">
+                            <span class="checkmark"></span>
+                            <span class="checkbox-text">Low</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Sub Category</label>
+                    <input type="text"
+                           class="form-input"
+                           name="questions[${index}][sub]">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Attachment Note</label>
+                    <input type="text"
+                           class="form-input"
+                           name="questions[${index}][attachment_text]"
+                           value="-">
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+    `;
+
+    container.insertAdjacentHTML('beforeend', html);
+
+    // setup checkbox event
+    const newCheckbox = container.querySelector(
+        `.question-checkbox[data-question-index="${index}"]`
+    );
+
+    newCheckbox.addEventListener('change', function () {
+        toggleCardEnabled(index);
+    });
+
+    questionIndex++;
+
+    updateCount(); // 🔥 penting
+}
+
+function changeQuestionType(index, value) {
+
+    const optionsWrapper = document.getElementById('options-wrapper-' + index);
+    const clueWrapper = document.getElementById('clue-wrapper-' + index);
+
+    if (!optionsWrapper || !clueWrapper) return;
+
+    if (value === 'pilihan') {
+
+        optionsWrapper.style.display = 'block';
+        clueWrapper.style.display = 'none';
+
+    } else {
+
+        optionsWrapper.style.display = 'none';
+        clueWrapper.style.display = 'block';
+    }
+
+    updateQuestionMeta(index, value);
+}
+
+function updateQuestionMeta(index, type) {
+
+    const card = document.querySelector(
+        `.import-card[data-question-index="${index}"]`
+    );
+
+    if (!card) return;
+
+    const typeSpan = card.querySelector('.question-type');
+
+    if (typeSpan) {
+        typeSpan.textContent =
+            type === 'pilihan'
+                ? 'Multiple Choice'
+                : 'Text Answer';
+    }
+}
+
+
+function toggleOptions(select, index) {
+
+    const container = document.getElementById('options-container-' + index);
+
+    if (select.value === 'pilihan') {
+        container.classList.remove('d-none');
+    } else {
+        container.classList.add('d-none');
+    }
+}
+
+function addOption(index) {
+
+    const container = document.getElementById('options-' + index);
+    if (!container) return;
+
+    const optionIndex = container.children.length;
+
+    const html = `
+        <div class="option-item">
+
+            <input type="text"
+                   name="questions[${index}][options][${optionIndex}][text]"
+                   placeholder="Option text"
+                   class="option-input">
+
+            <input type="number"
+                   name="questions[${index}][options][${optionIndex}][score]"
+                   placeholder="Score"
+                   min="0"
+                   step="1"
+                   class="option-score">
+
+            <button type="button"
+                    onclick="removeOption(this)"
+                    class="btn-remove-option">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+</script>
+
 
 <script>
 // Data untuk tracking
@@ -343,22 +648,37 @@ function toggleCardBody(index) {
 
 // Fungsi untuk mengaktifkan/nonaktifkan card berdasarkan checkbox
 function toggleCardEnabled(index) {
-    const card = document.querySelector(`.import-card[data-question-index="${index}"]`);
+
+    const card = document.querySelector(
+        `.import-card[data-question-index="${index}"]`
+    );
+
     if (!card) return;
 
     const checkbox = card.querySelector('.question-checkbox');
-    const inputs = card.querySelectorAll('input:not(.question-checkbox), select, textarea');
+    const actionInput = card.querySelector(
+        `input[name="questions[${index}][action]"]`
+    );
 
-    if (checkbox && checkbox.checked) {
+    if (checkbox.checked) {
+
         card.style.opacity = '1';
-        inputs.forEach(input => input.disabled = false);
+
+        if (actionInput.value === 'delete') {
+            actionInput.value = 'unchanged';
+        }
+
     } else {
+
         card.style.opacity = '0.4';
-        inputs.forEach(input => input.disabled = true);
+        actionInput.value = 'delete';
     }
 
     updateCount();
 }
+
+
+
 
 // Update event handler di checkbox
 function setupCheckboxEvents() {
@@ -381,34 +701,35 @@ function toggleAllQuestions(checked) {
 }
 
 function updateCount() {
-    let count = 0;
-    
-    // Hitung checkbox yang checked
-    document.querySelectorAll('.question-checkbox').forEach(cb => {
-        if (cb.checked && !cb.disabled) count++;
+
+    let processCount = 0;
+
+    document.querySelectorAll('.import-card').forEach(card => {
+
+        const actionInput = card.querySelector(
+            'input[name$="[action]"]'
+        );
+
+        if (!actionInput) return;
+
+        if (actionInput.value !== 'unchanged') {
+            processCount++;
+        }
     });
-    
-    // Hitung question delete (otomatis terpilih)
-    const deleteCards = document.querySelectorAll('.import-card[data-action="delete"]');
-    count += deleteCards.length;
-    
-    // Update counter
-    document.getElementById('selected-count').textContent = count;
-    
-    // Update tombol import
+
+    document.getElementById('selected-count').textContent = processCount;
+
     const importBtn = document.getElementById('confirm-import-btn');
-    if (count > 0) {
-        importBtn.disabled = false;
-        importBtn.style.opacity = '1';
-        importBtn.style.cursor = 'pointer';
-    } else {
-        importBtn.disabled = true;
-        importBtn.style.opacity = '0.5';
-        importBtn.style.cursor = 'not-allowed';
-    }
-    
-    return count;
+
+    // Disable hanya jika benar-benar tidak ada perubahan
+    importBtn.disabled = processCount === 0;
+    importBtn.style.opacity = processCount === 0 ? '0.5' : '1';
+    importBtn.style.cursor = processCount === 0 ? 'not-allowed' : 'pointer';
+
+    return processCount;
 }
+
+
 
 // Initialize semua checkbox saat halaman dimuat
 document.addEventListener('DOMContentLoaded', function() {
@@ -417,7 +738,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Set semua checkbox checked
     document.querySelectorAll('.question-checkbox').forEach(cb => {
-        cb.checked = true;
         const index = cb.getAttribute('data-question-index');
         toggleCardEnabled(index);
     });

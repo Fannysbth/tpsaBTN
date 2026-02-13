@@ -32,6 +32,37 @@
 
 
 <div  class="questionnaire-page">
+    @if(session('error'))
+    <!-- Modal -->
+    <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-danger">
+          <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title" id="errorModalLabel">Error</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            {!! session('error') !!}
+          </div>
+          <div class="modal-footer">
+            <a href="{{ route('questionnaire.export') }}" class="btn btn-success">
+        <i class="fas fa-file-excel" style="margin-right: 8px;"></i>Export to Excel
+    </a>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Script untuk otomatis show modal -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+            errorModal.show();
+        });
+    </script>
+@endif
+
 
     {{-- TOOLBAR --}}
 
