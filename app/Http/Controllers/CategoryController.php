@@ -9,13 +9,29 @@ class CategoryController extends Controller
 {
     public function index(Request $request)
 {
-    $categories = Category::with('questions.options')->get();
+    $categories = Category::with([
+    'questions' => function ($query) {
+        $query->orderByRaw("
+    CAST(regexp_replace(question_no, '[^0-9]', '', 'g') AS INTEGER),
+    question_no
+")
+->with('options');
+    }
+])->get();
+
 
     $selectedCategory = null;
 
     if ($request->filled('selected')) {
-        $selectedCategory = Category::with('questions.options')
-            ->find($request->selected);
+        $categories = Category::with([
+    'questions' => function ($query) {
+        $query->orderByRaw("
+            CAST(question_no AS UNSIGNED),
+            question_no
+        ")->with('options');
+    }
+])->get();
+
     }
 
     // 🔥 JIKA TIDAK ADA CATEGORY SAMA SEKALI
@@ -95,8 +111,13 @@ public function store(Request $request)
         
         if ($request->has('selected')) {
             $selectedCategory = Category::with(['questions' => function($query) {
-                $query->with('options');
-            }])->find($request->selected);
+    $query->orderByRaw("
+    CAST(regexp_replace(question_no, '[^0-9]', '', 'g') AS INTEGER),
+    question_no
+")->with('options');
+
+}])->find($request->selected);
+
         }
         
         return view('categories.create', compact('categories', 'selectedCategory'));

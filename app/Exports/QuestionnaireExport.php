@@ -54,12 +54,23 @@ class QuestionnaireExport implements FromCollection, WithHeadings, WithStyles, W
     public function collection()
     {
         $rows = collect();
-        $categories = Category::with([
-    'questions' => function ($q) {
-        $q->orderBy('order_index');
-    },
-    'questions.options'
-])->get();
+        $categories = Category::with('questions.options')->get();
+
+$categories->each(function ($category) {
+
+    $category->questions = $category->questions
+        ->sortBy(function ($q) {
+
+            preg_match('/^(\d+)([a-zA-Z]*)$/', $q->question_no, $matches);
+
+            $number = isset($matches[1]) ? (int) $matches[1] : 0;
+            $suffix = $matches[2] ?? '';
+
+            return [$number, $suffix];
+        })
+        ->values();
+});
+
 
 
         foreach ($categories as $category) {
@@ -177,6 +188,8 @@ class QuestionnaireExport implements FromCollection, WithHeadings, WithStyles, W
                 $sheet = $event->sheet->getDelegate();
                 $lastRow = $sheet->getHighestRow();
                 $lastColumn = $this->lastIndicatorColumn();
+                $sheet->freezePane('A3');
+
 
                 // ===== HEADER STYLE =====
                 $sheet->getStyle("A1:{$lastColumn}2")->applyFromArray([

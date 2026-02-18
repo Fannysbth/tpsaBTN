@@ -164,13 +164,19 @@
         {{-- SUDAH ADA NILAI: Tampilkan data hasil dan tombol Edit --}}
         <div style="display:flex; justify-content: space-between; align-items: flex-start;">
             <div style="display:flex; flex-direction:column; gap:10px; width:100%; padding-left:5px;">
-                <span style="font-size:16px; font-weight:bold;">
-                    Total Score: {{ $assessment->total_score ?? '-' }}%
-                </span>
-                <span style="font-size:16px; font-weight:bold;">
-                    Risk Level: {{$assessment->risk_level_label ? strtoupper($assessment->risk_level_label) : '-' }}
-                </span>
-                <span style="font-size:16px;">Deskripsi: {{ $assessment->notes ?? '-' }}</span>
+                <span style="font-size:16px;">
+    <strong>Total Score:</strong> {{ $assessment->total_score ?? '-' }}%
+</span>
+
+<span style="font-size:16px;">
+    <strong>Risk Level:</strong> 
+    {{ $assessment->risk_level_label ? strtoupper($assessment->risk_level_label) : '-' }}
+</span>
+
+<span style="font-size:16px;">
+    <strong>Deskripsi:</strong> {{ $assessment->notes ?? '-' }}
+</span>
+
             </div>
             
         </div>

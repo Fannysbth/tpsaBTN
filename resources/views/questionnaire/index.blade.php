@@ -171,7 +171,6 @@
         <div class="question-header">
             <div >No</div>
             <div>Category</div>
-            <div style="text-align:center;">Sub Category</div>
             <div style="text-align:center;">Indicator</div>
             <div style= "text-align: center;">Question</div>
             <div style= "text-align: center;">Type Answer</div>
@@ -194,7 +193,6 @@
 
             <div>{{ $question->question_no ?? '-' }}</div>
             <div>{{ $category->name }}</div>
-            <div style="text-align:center;">{{ $question->sub ?? '-' }}</div>
 
             <div style="text-align:center;">
     @php
@@ -241,7 +239,7 @@
     action="{{ route('questionnaire.questions.destroy', $question) }}"
     method="POST"
     onsubmit="return confirm('Yakin ingin menghapus question ini?');"
-    style="margin:0;"
+    style="margin:0; text-align:center;"
 >
     @csrf
     @method('DELETE')
@@ -249,8 +247,10 @@
     <button
         type="submit"
         class="btn btn-sm btn-danger"
+        
+        
     >
-        <i class="fas fa-trash"></i>
+        <i class="fas fa-trash" ></i>
     </button>
 </form>
 

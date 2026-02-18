@@ -390,7 +390,7 @@ try {
                 'question_type'   => $q['question_type'],
                 'category_id'     => $q['category_id'],
                 'sub'             => $q['sub'],
-                'indicator' => $q['indicator'] ?? [],
+                'indicator'       => $q['indicator'] ?? [],
                 'attachment_text' => $q['attachment_text'],
                 'has_attachment'  => !empty($q['attachment_text']),
                 'clue'            => $q['clue'] ?? null,
@@ -405,11 +405,11 @@ try {
                 'question_type'   => $q['question_type'],
                 'category_id'     => $q['category_id'],
                 'sub'             => $q['sub'],
-                'indicator' => $q['indicator'] ?? [],
+                'indicator'       => $q['indicator'] ?? [],
                 'attachment_text' => $q['attachment_text'],
                 'has_attachment'  => !empty($q['attachment_text']),
                 'clue'            => $q['clue'] ?? null,
-                'question_no' => $q['question_no'] ?? $this->generateNextQuestionNo($q['category_id']),
+                'question_no'     => $q['question_no'] ?? $this->generateNextQuestionNo($q['category_id']),
                 'order_index'     => $q['order_index'] ?? 0,
             ]);
         }

@@ -70,7 +70,7 @@
             <div class="chart-header">
                 <h3>
                     <i class="fa-solid fa-chart-bar" style="color: #8280FF; margin-right: 10px;"></i>
-                    Vendor Performance Chart
+                    Performance Chart
                 </h3>
                         </div>
             <div class="chart-body">

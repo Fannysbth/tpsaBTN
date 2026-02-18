@@ -26,7 +26,6 @@ class AssessmentExport implements
 
     protected array $categoryRowMap = [];
     protected array $questionsMap   = [];
-    protected int $categoryColumnCount = 0;
     protected int $lastTableRow = 0;
     protected bool $hasScore = false;
     /**
@@ -73,24 +72,24 @@ private function alphanumericSort(string $a, string $b): int
         return array_fill(0, $count, '');
     }
 
-    private function matrixColCount(): int
-    {
-        return 6 + $this->categoryColumnCount;
-    }
 
     private function lastMatrixColumnLetter(): string
 {
-    $colCount = 6 + $this->categoryColumnCount;
-    if ($this->hasScore) $colCount += 1;
+    $colCount = 6; // A-F
+
+    if ($this->hasScore) {
+        $colCount += 1;
+    }
+
     return Coordinate::stringFromColumnIndex($colCount);
 }
+
 
     /* =======================
      * Collection (DATA MATRIX)
      * ======================= */
     public function collection()
 {
-    $this->categoryColumnCount = Category::count() * 3;
 
     $data = [];
     $row  = 2;
@@ -116,8 +115,6 @@ private function alphanumericSort(string $a, string $b): int
         $rowData[] = $categoryScore ?? 0;
     }
 
-    // Kolom tambahan kosong untuk kategori (H ke kanan)
-    $rowData = array_merge($rowData, $this->emptyCols($this->categoryColumnCount));
 
     $data[] = $rowData;
     $this->categoryRowMap[$categoryId] = $row;
@@ -144,9 +141,6 @@ private function alphanumericSort(string $a, string $b): int
             $rowData[] = $answer->score ?? 0;
         }
 
-        // Kolom tambahan kosong untuk kategori
-        $rowData = array_merge($rowData, $this->emptyCols($this->categoryColumnCount));
-
         $data[] = $rowData;
         $this->questionsMap[$row] = $question;
         $row++;
@@ -164,10 +158,14 @@ private function alphanumericSort(string $a, string $b): int
      * ======================= */
   public function headings(): array
 {
-    $headings = array_merge(
-        ['SUB KATEGORI', 'NO', 'PERTANYAAN', ':', 'JAWABAN', 'ATTACHMENT'],
-        $this->emptyCols($this->categoryColumnCount)
-    );
+    $headings = [
+        'SUB KATEGORI',
+        'NO',
+        'PERTANYAAN',
+        ':',
+        'JAWABAN',
+        'ATTACHMENT',
+    ];
 
     if ($this->hasScore) {
         $headings[] = 'SCORE';
@@ -175,6 +173,7 @@ private function alphanumericSort(string $a, string $b): int
 
     return $headings;
 }
+
 
 
     /* =======================
@@ -298,8 +297,11 @@ private function alphanumericSort(string $a, string $b): int
 {
     $lastRow = $this->lastTableRow;
 
+    // 🔥 ambil kolom terakhir otomatis (F atau G)
+    $lastCol = $this->lastMatrixColumnLetter();
+
     // HEADER
-    $sheet->getStyle("A1:G1")->applyFromArray([
+    $sheet->getStyle("A1:{$lastCol}1")->applyFromArray([
         'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
         'fill' => [
             'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
@@ -314,7 +316,7 @@ private function alphanumericSort(string $a, string $b): int
     ]);
 
     // DATA
-    $sheet->getStyle("A2:G{$lastRow}")->applyFromArray([
+    $sheet->getStyle("A2:{$lastCol}{$lastRow}")->applyFromArray([
         'alignment' => [
             'wrapText' => true,
             'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP,
@@ -322,17 +324,14 @@ private function alphanumericSort(string $a, string $b): int
         'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
     ]);
 
+    // Kalau ada score, center-kan kolom terakhir
     if ($this->hasScore) {
-        $scoreCol = $this->lastMatrixColumnLetter(); // kolom terakhir
-        $sheet->getStyle("{$scoreCol}2:{$scoreCol}{$lastRow}")->applyFromArray([
-            'alignment' => [
-                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP,
-            ],
-            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
-        ]);
+        $sheet->getStyle("{$lastCol}2:{$lastCol}{$lastRow}")
+            ->getAlignment()
+            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
     }
 }
+
 
 
     public function columnWidths(): array

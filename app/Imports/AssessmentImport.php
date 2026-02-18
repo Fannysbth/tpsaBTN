@@ -10,11 +10,11 @@ use Maatwebsite\Excel\Concerns\ToCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class AssessmentImport implements ToCollection
 {
     protected Assessment $assessment;
-    
 
     public function __construct(Assessment $assessment)
     {
@@ -23,45 +23,137 @@ class AssessmentImport implements ToCollection
 
     public function collection(Collection $rows)
     {
+        // =========================
+        // VALIDASI FILE KOSONG
+        // =========================
+        if ($rows->isEmpty()) {
+            throw ValidationException::withMessages([
+                'file' => ['File Excel kosong atau tidak terbaca.']
+            ]);
+        }
+
+        // Minimal harus punya header + 1 baris data
+        if ($rows->count() < 2) {
+            throw ValidationException::withMessages([
+                'file' => ['Format Excel tidak sesuai. Data tidak ditemukan.']
+            ]);
+        }
+
         DB::beginTransaction();
 
         try {
+
             $newAnswers = [];
             $currentCategoryId = null;
+            $foundValidRow = false;
+            $errors = []; 
+
+            // Ambil semua question id milik assessment ini (sekali saja di luar loop lebih bagus)
+// =========================
+// BUILD DAFTAR PERTANYAAN VALID BERDASARKAN CATEGORY & INDICATOR
+// =========================
+
+$allowedQuestions = collect();
+
+$categoryScores = $this->assessment->category_scores ?? [];
+
+foreach ($categoryScores as $categoryId => $data) {
+
+    $indicator = $data['indicator'] ?? null;
+
+    if (!$indicator) continue;
+
+    $questions = Question::where('category_id', $categoryId)
+        ->where('is_active', true)
+        ->where(function($query) use ($indicator) {
+            $query->whereJsonContains('indicator', $indicator)
+                  ->orWhere('indicator', 'LIKE', "%{$indicator}%");
+        })
+        ->get();
+
+    $allowedQuestions = $allowedQuestions->merge($questions);
+}
+
+// keyBy supaya bisa dicari cepat tanpa query ulang
+$allowedQuestions = $allowedQuestions->keyBy(function($q) {
+    return trim($q->question_text);
+});
+
+
+
 
             foreach ($rows as $index => $row) {
 
-                // Skip header
+                $row = $row->toArray();
+
+                // =========================
+                // VALIDASI STRUKTUR KOLOM
+                // =========================
                 if ($index === 0) {
+                    if (count($row) < 5) {
+                        throw ValidationException::withMessages([
+                            'file' => ['Format kolom Excel tidak sesuai. Minimal harus 5 kolom.']
+                        ]);
+                    }
                     continue;
                 }
 
-                // Pastikan row array
-                $row = $row->toArray();
+                // =========================
+                // VALIDASI ROW TIDAK VALID
+                // =========================
+                if (!is_array($row) || count($row) < 3) {
+                    continue;
+                }
 
                 // =========================
                 // DETEKSI BARIS KATEGORI
                 // =========================
                 if (!empty($row[0]) && str_starts_with(trim($row[0]), 'Kategori:')) {
 
-                    $raw = trim(str_replace('Kategori:', '', $row[0]));
-                    $categoryName = preg_split('/[\(\-]/', $raw)[0];
-                    $categoryName = trim($categoryName);
+    $fullText = trim($row[0]);
 
-                    $category = Category::where('name', $categoryName)->first();
+    // Ambil nama kategori
+    preg_match('/Kategori:\s*(.*?)\s*\(/', $fullText, $catMatch);
+    $categoryName = $catMatch[1] ?? null;
 
-                    if (!$category) {
-                        Log::warning("Kategori tidak ditemukan: {$categoryName}");
-                        $currentCategoryId = null;
-                        continue;
-                    }
+    // Ambil indicator
+    preg_match('/Indikator:\s*(.*?)\)/', $fullText, $indMatch);
+    $indicatorFromExcel = strtoupper(trim($indMatch[1] ?? ''));
 
-                    $currentCategoryId = $category->id;
-                    continue;
-                }
+    if (!$categoryName || !$indicatorFromExcel) {
+        throw ValidationException::withMessages([
+            'file' => ['Format Kategori / Indikator tidak sesuai.']
+        ]);
+    }
+
+    $category = Category::where('name', trim($categoryName))->first();
+
+    if (!$category) {
+        throw ValidationException::withMessages([
+            'file' => ["Kategori '{$categoryName}' tidak ditemukan di sistem."]
+        ]);
+    }
+
+    // 🔥 VALIDASI DENGAN ASSESSMENT
+    $assessmentIndicator = strtoupper(
+        $this->assessment->category_scores[$category->id]['indicator'] ?? ''
+    );
+
+    if ($assessmentIndicator !== $indicatorFromExcel) {
+        throw ValidationException::withMessages([
+            'file' => [
+                "Assessment yang kamu upload tidak sesuai"
+            ]
+        ]);
+    }
+
+    $currentCategoryId = $category->id;
+
+    continue;
+}
 
                 // =========================
-                // STOP JIKA MASUK AREA TTD
+                // STOP AREA TTD
                 // =========================
                 $firstCell = strtoupper(trim((string)($row[2] ?? '')));
                 if (
@@ -72,57 +164,58 @@ class AssessmentImport implements ToCollection
                     break;
                 }
 
-                // =========================
-                // VALIDASI BARIS PERTANYAAN
-                // =========================
                 if (!$currentCategoryId) {
                     continue;
                 }
 
-                $questionText = trim((string)($row[2] ?? '')); // kolom C
-                $answerText   = trim((string)($row[4] ?? '')); // kolom E
+                $questionText = trim((string)($row[2] ?? ''));
+                $answerText   = trim((string)($row[4] ?? ''));
 
-                if ($questionText === '' || $questionText === 'PERTANYAAN') {
+                if ($questionText === '' || strtoupper($questionText) === 'PERTANYAAN') {
                     continue;
                 }
 
-                // Ambil score dari kolom terakhir (kalau ada)
-                $scoreFromExcel = null;
+                $foundValidRow = true;
+
+                // =========================
+                // VALIDASI QUESTION ADA
+                // =========================
+                // Ambil semua question milik assessment ini
+
+
+$question = $allowedQuestions->get($questionText);
+
+if (!$question) {
+    $errors[] = "Pertanyaan '{$questionText}' tidak sesuai dengan kategori dan indikator assessment ini.";
+    continue;
+}
+
+
+
+
+                // =========================
+                // VALIDASI JAWABAN PILIHAN
+                // =========================
+                if ($question->question_type === 'pilihan') {
+
+    $option = $question->options()
+        ->whereRaw('LOWER(TRIM(option_text)) = ?', [strtolower(trim($answerText))])
+        ->first();
+
+    // Kalau option tidak ditemukan → score 0
+    $score = $option?->score ?? 0;
+
+} else {
+    $score = 0;
+}
+
+
+                // Ambil score dari kolom terakhir jika ada
                 if (count($row) > 6) {
                     $scoreFromExcel = trim((string)end($row));
-                    $scoreFromExcel = is_numeric($scoreFromExcel)
-                        ? (float)$scoreFromExcel
-                        : null;
-                }
-
-                // =========================
-                // CARI QUESTION
-                // =========================
-                $question = Question::where('question_text', $questionText)
-                    ->where('category_id', $currentCategoryId)
-                    ->first();
-
-                if (!$question) {
-                    Log::warning("Question tidak ditemukan: {$questionText}");
-                    continue;
-                }
-
-                // =========================
-                // HITUNG SCORE
-                // =========================
-                $score = 0;
-
-                // 1️⃣ Prioritas score dari Excel
-                if ($scoreFromExcel !== null) {
-                    $score = $scoreFromExcel;
-                }
-                // 2️⃣ Hitung dari option jika pilihan
-                elseif ($question->question_type === 'pilihan' && $answerText !== '') {
-                    $option = $question->options()
-                        ->where('option_text', $answerText)
-                        ->first();
-
-                    $score = $option?->score ?? 0;
+                    if (is_numeric($scoreFromExcel)) {
+                        $score = (float)$scoreFromExcel;
+                    }
                 }
 
                 $newAnswers[] = [
@@ -135,28 +228,49 @@ class AssessmentImport implements ToCollection
                 ];
             }
 
-            if (empty($newAnswers)) {
-                throw new \Exception('Tidak ada jawaban yang berhasil diimport');
+            // =========================
+            // VALIDASI TIDAK ADA DATA VALID
+            // =========================
+            if (!$foundValidRow) {
+                throw ValidationException::withMessages([
+                    'file' => ['Tidak ditemukan data pertanyaan yang valid di dalam file.']
+                ]);
             }
+
+            // PRIORITAS tampilkan error sebenarnya dulu
+if (!empty($errors)) {
+    DB::rollBack();
+
+    throw ValidationException::withMessages([
+        'file' => $errors
+    ]);
+}
+
+if (empty($newAnswers)) {
+    throw ValidationException::withMessages([
+        'file' => ['Tidak ada jawaban yang berhasil diimport.']
+    ]);
+}
+
+
 
             // =========================
             // SIMPAN DATA
             // =========================
             $this->assessment->answers()->delete();
-Answer::insert($newAnswers);
+            Answer::insert($newAnswers);
 
-// 🔥 TAMBAHKAN BARIS INI
-$this->assessment->load('answers.question.options');
-
-// Hitung ulang total & risk level
-$this->assessment->calculateCategoryScores();
-$this->assessment->refresh();
-
+            $this->assessment->load('answers.question.options');
+            $this->assessment->calculateCategoryScores();
+            $this->assessment->refresh();
 
             DB::commit();
 
         } catch (\Throwable $e) {
+
             DB::rollBack();
+            Log::error('Import gagal: ' . $e->getMessage());
+
             throw $e;
         }
     }

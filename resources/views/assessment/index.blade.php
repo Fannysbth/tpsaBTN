@@ -117,6 +117,9 @@
       method="POST"
       enctype="multipart/form-data">
     @csrf
+    <a href="{{ route('assessment.export', $assessment) }}" class="btn btn-sm btn-success" style="width: 80px;">
+                    Export
+                </a>
 
     <label for="excel_file"
             class="btn btn-sm btn-warning"
@@ -137,9 +140,7 @@
            onchange="this.form.submit()">
 </form>
 
-                <a href="{{ route('assessment.export', $assessment) }}" class="btn btn-sm btn-primary" style="width: 80px;">
-                    Export
-                </a>
+                
             </div>
 
             <div style="text-align: center;">
@@ -205,10 +206,10 @@
 
 <div style="margin-top:20px; display:flex; justify-content:flex-end; ">
 <a href="{{ route('assessment.export.report', request()->query()) }}"
-   class="btn-success"
+   class="btn-primary"
    style="padding: 10px 24px; border-radius: 8px; font-weight: 500;">
     <i class="fas fa-file-excel"></i>
-    <span>Export Excel</span>
+    <span>Export Report</span>
 </a>
 </div>
 </div>

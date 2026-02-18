@@ -697,9 +697,20 @@ select:focus {
 .question-row {
     padding: 14px 30px;
     display: grid;
-    grid-template-columns: 30px 80px 120px 80px 1fr 200px  50px;
+    grid-template-columns: 30px  120px 80px 1fr 250px  50px;
     align-items: center;
     border-bottom: 1px solid #EEE;
+    font-size: 14px;
+}
+
+/* Header row */
+.question-header {
+    background: #FCFCFC;
+    border-bottom: 1px solid #D4D4D4;
+    padding: 15px 30px;
+    display: grid;
+    grid-template-columns: 30px 120px 80px 1fr 250px  50px;
+    font-weight: 700;
     font-size: 14px;
 }
 
@@ -716,16 +727,7 @@ select:focus {
 }
 
 
-/* Header row */
-.question-header {
-    background: #FCFCFC;
-    border-bottom: 1px solid #D4D4D4;
-    padding: 15px 30px;
-    display: grid;
-    grid-template-columns: 30px 80px 120px 80px 1fr 200px  50px;
-    font-weight: 700;
-    font-size: 14px;
-}
+
 
 .question-row:last-child {
     border-bottom: none;

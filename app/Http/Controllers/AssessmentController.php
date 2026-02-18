@@ -397,7 +397,7 @@ public function destroy(Assessment $assessment)
     public function import(Request $request, Assessment $assessment)
 {
     $request->validate([
-        'excel_file' => 'required|mimes:xlsx,xls',
+        'excel_file' => 'required|file|mimes:xls,xlsx|max:5120',
     ]);
 
     try {
@@ -413,7 +413,7 @@ public function destroy(Assessment $assessment)
             $cellIterator = $row->getCellIterator();
             $cellIterator->setIterateOnlyExistingCells(false);
             foreach ($cellIterator as $cell) {
-                $header[] = trim($cell->getValue());
+                $header[] = trim((string)$cell->getValue());
             }
         }
 
@@ -421,24 +421,53 @@ public function destroy(Assessment $assessment)
         $requiredColumns = ['SUB KATEGORI', 'NO', 'PERTANYAAN', ':', 'JAWABAN', 'ATTACHMENT'];
 
         $missingColumns = array_diff($requiredColumns, $header);
+
         if (!empty($missingColumns)) {
-            return redirect()->back()->with('alert_error', 
-                'Template Excel salah. Kolom hilang: ' . implode(', ', $missingColumns));
+            return redirect()
+                ->route('assessment.index')
+                ->with('import_errors', [
+                    'Template Excel tidak sesuai.',
+                    'Kolom hilang: ' . implode(', ', $missingColumns)
+                ]);
         }
 
-        // --- Import data jika header valid ---
+        // --- Jalankan import ---
         Excel::import(new AssessmentImport($assessment), $file);
 
-        // --- Hitung ulang category scores ---
-        $assessment->calculateCategoryScores();
+        return redirect()
+            ->route('assessment.index')
+            ->with('success', 'Data berhasil diimport.');
 
-        return redirect()->back()->with('success', 'Data berhasil diimport sesuai template.');
+    } catch (\Illuminate\Validation\ValidationException $e) {
+
+        // 🔥 Ambil semua error dari Import Class
+        $errors = collect($e->errors())->flatten()->toArray();
+
+        return redirect()
+            ->route('assessment.index')
+            ->with('import_errors', $errors);
+
     } catch (\PhpOffice\PhpSpreadsheet\Reader\Exception $e) {
-        return redirect()->back()->with('alert_error', 'File Excel tidak bisa dibaca. Pastikan file valid.');
-    } catch (\Exception $e) {
+
+        return redirect()
+            ->route('assessment.index')
+            ->with('import_errors', [
+                'File Excel tidak bisa dibaca.',
+                'Pastikan file tidak corrupt dan format .xlsx atau .xls.'
+            ]);
+
+    } catch (\Throwable $e) {
+
         Log::error('Assessment import error: ' . $e->getMessage());
-        return redirect()->back()->with('alert_error', 'Terjadi kesalahan saat import: '.$e->getMessage());
+
+        return redirect()
+            ->route('assessment.index')
+            ->with('import_errors', [
+                'Terjadi kesalahan saat proses import.',
+                $e->getMessage()
+            ]);
     }
 }
+
 
 }

@@ -214,12 +214,10 @@ $periodRun = $period->createTextRun(
             ->sortByDesc('assessment_date')
             ->first();
 
-        // ❌ skip kalau belum ada risk level
         if (!$vendorAssessment || empty($vendorAssessment->risk_level)) {
             continue;
         }
 
-        // ✅ vendor valid
         $vendors[] = $vendor;
 
         $categoryScores = $vendorAssessment->category_scores ?? [];
@@ -258,17 +256,12 @@ $periodRun = $period->createTextRun(
         ->toArray();
 
     return [
-        'title'      => 'Vendor Assessment Heatmap',
+        'title'      => 'Assessment Heatmap',
         'categories' => $categoryNames,
         'vendors'    => $vendors,
         'matrix'     => $matrix,
     ];
 }
-
-
-
-
-
     private function vendorScoresChart($assessments)
     {
         // Ambil data untuk chart
