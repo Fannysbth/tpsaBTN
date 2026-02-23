@@ -309,6 +309,22 @@
 	padding: 30px 16px;
 	box-shadow: 6px 6px 54px #0000000D;
 }
+.select2-container--default .select2-selection--single {
+    height: auto !important;
+    min-height: 50px;
+    padding: 6px 10px;
+}
+
+.select2-selection__rendered {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    line-height: 1.4 !important;
+}
+
+.select2-results__option {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+}
 .row-view5 {
 	align-self: stretch;
 	display: flex;
@@ -317,6 +333,18 @@
 	margin-bottom: 32px;
 	margin-left: 31px;
 	margin-right: 31px;
+}
+
+.category-level {
+    white-space: normal !important;
+    word-wrap: break-word;
+    height: auto;
+    min-height: 50px;
+    line-height: 1.3;
+}
+
+.category-level option {
+    white-space: normal;
 }
 
 .category-chip {

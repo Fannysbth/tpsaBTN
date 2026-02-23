@@ -4,288 +4,92 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class AssessmentsTableSeeder extends Seeder
 {
-
-    /**
-     * Auto generated seed file
-     *
-     * @return void
-     */
-    public function run()
+    public function run(): void
     {
-        
-
         DB::table('assessments')->delete();
-        
-        DB::table('assessments')->insert(array (
-            0 => 
-            array (
-                'id' => 2,
-                'company_name' => 'CV. Sejahtera Abadi',
-                'assessment_date' => '2026-02-03',
-                'total_score' => '40.00',
-                'risk_level' => 'high',
-                'category_scores' => '{"1":{"indicator":"high","actual_score":0.5,"max_score":1,"score":50},"2":{"indicator":"high","actual_score":2,"max_score":4,"score":50},"3":{"indicator":"high","actual_score":1,"max_score":1,"score":100},"4":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"5":{"indicator":"medium","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan buruk.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            1 => 
-            array (
-                'id' => 3,
-                'company_name' => 'PT. Teknologi Indonesia',
-                'assessment_date' => '2026-02-02',
-                'total_score' => '66.67',
-                'risk_level' => 'medium',
-                'category_scores' => '{"1":{"indicator":"low","actual_score":1,"max_score":1,"score":100},"2":{"indicator":"medium","actual_score":1,"max_score":3,"score":33.33},"3":{"indicator":"high","actual_score":1,"max_score":1,"score":100},"4":{"indicator":"high","actual_score":4,"max_score":4,"score":100},"5":{"indicator":"high","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan cukup baik. Terdapat isu ketidakpatuhan namun masih dalam batas toleransi Bank.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            2 => 
-            array (
-                'id' => 4,
-                'company_name' => 'UD. Jaya Makmur',
-                'assessment_date' => '2026-02-01',
-                'total_score' => '40.00',
-                'risk_level' => 'high',
-                'category_scores' => '{"1":{"indicator":"high","actual_score":1,"max_score":1,"score":100},"2":{"indicator":"medium","actual_score":3,"max_score":3,"score":100},"3":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"4":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"5":{"indicator":"low","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan buruk.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            3 => 
-            array (
-                'id' => 5,
-                'company_name' => 'PT. Global Solution',
-                'assessment_date' => '2026-01-31',
-                'total_score' => '50.00',
-                'risk_level' => 'medium',
-                'category_scores' => '{"1":{"indicator":"low","actual_score":0.5,"max_score":1,"score":50},"2":{"indicator":"high","actual_score":4,"max_score":4,"score":100},"3":{"indicator":"low","actual_score":0,"max_score":0,"score":0},"4":{"indicator":"high","actual_score":4,"max_score":4,"score":100},"5":{"indicator":"high","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan cukup baik. Terdapat isu ketidakpatuhan namun masih dalam batas toleransi Bank.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            4 => 
-            array (
-                'id' => 6,
-                'company_name' => 'PT. Sinar Jaya 1',
-                'assessment_date' => '2026-01-04',
-                'total_score' => '15.00',
-                'risk_level' => 'high',
-                'category_scores' => '{"1":{"indicator":"low","actual_score":0,"max_score":1,"score":0},"2":{"indicator":"high","actual_score":2,"max_score":4,"score":50},"3":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"4":{"indicator":"high","actual_score":1,"max_score":4,"score":25},"5":{"indicator":"medium","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan buruk.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            5 => 
-            array (
-                'id' => 7,
-                'company_name' => 'CV. Anugerah 1',
-                'assessment_date' => '2026-01-05',
-                'total_score' => '25.00',
-                'risk_level' => 'high',
-                'category_scores' => '{"1":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"2":{"indicator":"high","actual_score":1,"max_score":4,"score":25},"3":{"indicator":"high","actual_score":1,"max_score":1,"score":100},"4":{"indicator":"low","actual_score":0,"max_score":0,"score":0},"5":{"indicator":"low","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan buruk.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            6 => 
-            array (
-                'id' => 8,
-                'company_name' => 'PT. Mandiri Sejahtera 1',
-                'assessment_date' => '2026-01-06',
-                'total_score' => '26.67',
-                'risk_level' => 'high',
-                'category_scores' => '{"1":{"indicator":"low","actual_score":1,"max_score":1,"score":100},"2":{"indicator":"low","actual_score":1,"max_score":3,"score":33.33},"3":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"4":{"indicator":"high","actual_score":0,"max_score":4,"score":0},"5":{"indicator":"low","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan buruk.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            7 => 
-            array (
-                'id' => 9,
-                'company_name' => 'UD. Berkah 1',
-                'assessment_date' => '2026-01-07',
-                'total_score' => '6.67',
-                'risk_level' => 'high',
-                'category_scores' => '{"1":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"2":{"indicator":"low","actual_score":1,"max_score":3,"score":33.33},"3":{"indicator":"high","actual_score":0,"max_score":1,"score":0},"4":{"indicator":"high","actual_score":0,"max_score":4,"score":0},"5":{"indicator":"high","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan buruk.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            8 => 
-            array (
-                'id' => 10,
-                'company_name' => 'PT. Prima Utama 1',
-                'assessment_date' => '2026-01-08',
-                'total_score' => '16.67',
-                'risk_level' => 'high',
-                'category_scores' => '{"1":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"2":{"indicator":"medium","actual_score":1,"max_score":3,"score":33.33},"3":{"indicator":"high","actual_score":0.5,"max_score":1,"score":50},"4":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"5":{"indicator":"low","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan buruk.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            9 => 
-            array (
-                'id' => 11,
-                'company_name' => 'PT. Sinar Jaya 2',
-                'assessment_date' => '2025-12-04',
-                'total_score' => '20.00',
-                'risk_level' => 'high',
-                'category_scores' => '{"1":{"indicator":"high","actual_score":0,"max_score":1,"score":0},"2":{"indicator":"low","actual_score":3,"max_score":3,"score":100},"3":{"indicator":"low","actual_score":0,"max_score":0,"score":0},"4":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"5":{"indicator":"high","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan buruk.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            10 => 
-            array (
-                'id' => 12,
-                'company_name' => 'CV. Anugerah 2',
-                'assessment_date' => '2025-12-05',
-                'total_score' => '6.67',
-                'risk_level' => 'high',
-                'category_scores' => '{"1":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"2":{"indicator":"medium","actual_score":1,"max_score":3,"score":33.33},"3":{"indicator":"low","actual_score":0,"max_score":0,"score":0},"4":{"indicator":"low","actual_score":0,"max_score":0,"score":0},"5":{"indicator":"low","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan buruk.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            11 => 
-            array (
-                'id' => 13,
-                'company_name' => 'PT. Mandiri Sejahtera 2',
-                'assessment_date' => '2025-12-06',
-                'total_score' => '26.67',
-                'risk_level' => 'high',
-                'category_scores' => '{"1":{"indicator":"low","actual_score":1,"max_score":1,"score":100},"2":{"indicator":"medium","actual_score":1,"max_score":3,"score":33.33},"3":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"4":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"5":{"indicator":"low","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan buruk.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            12 => 
-            array (
-                'id' => 14,
-                'company_name' => 'UD. Berkah 2',
-                'assessment_date' => '2025-12-07',
-                'total_score' => '20.00',
-                'risk_level' => 'high',
-                'category_scores' => '{"1":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"2":{"indicator":"low","actual_score":3,"max_score":3,"score":100},"3":{"indicator":"high","actual_score":0,"max_score":1,"score":0},"4":{"indicator":"low","actual_score":0,"max_score":0,"score":0},"5":{"indicator":"high","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan buruk.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            13 => 
-            array (
-                'id' => 15,
-                'company_name' => 'PT. Prima Utama 2',
-                'assessment_date' => '2025-12-08',
-                'total_score' => '6.67',
-                'risk_level' => 'high',
-                'category_scores' => '{"1":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"2":{"indicator":"low","actual_score":1,"max_score":3,"score":33.33},"3":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"4":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"5":{"indicator":"medium","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan buruk.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            14 => 
-            array (
+
+        $now = Carbon::now();
+
+        DB::table('assessments')->insert([
+
+            [
                 'id' => 1,
                 'company_name' => 'PT. Maju Bersama',
+                'assessor' => 'Budi Santoso',
                 'assessment_date' => '2026-02-04',
-                'total_score' => '6.67',
-                'risk_level' => 'high',
-                'category_scores' => '{"1":{"indicator":"high","actual_score":0,"max_score":1,"score":0},"2":{"indicator":"low","actual_score":1,"max_score":3,"score":33.33},"3":{"indicator":"high","actual_score":0,"max_score":1,"score":0},"4":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"5":{"indicator":"low","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan buruk.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-05 09:05:46',
-            ),
-            15 => 
-            array (
-                'id' => 16,
-                'company_name' => 'PT. Sinar Jaya 3',
-                'assessment_date' => '2025-11-04',
-                'total_score' => '45.00',
-                'risk_level' => 'high',
-                'category_scores' => '{"1":{"indicator":"high","actual_score":1,"max_score":1,"score":100},"2":{"indicator":"medium","actual_score":3,"max_score":3,"score":100},"3":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"4":{"indicator":"high","actual_score":1,"max_score":4,"score":25},"5":{"indicator":"medium","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan buruk.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            16 => 
-            array (
-                'id' => 17,
-                'company_name' => 'CV. Anugerah 3',
-                'assessment_date' => '2025-11-05',
-                'total_score' => '37.50',
-                'risk_level' => 'high',
-                'category_scores' => '{"1":{"indicator":"high","actual_score":0,"max_score":1,"score":0},"2":{"indicator":"high","actual_score":3.5,"max_score":4,"score":87.5},"3":{"indicator":"high","actual_score":1,"max_score":1,"score":100},"4":{"indicator":"low","actual_score":0,"max_score":0,"score":0},"5":{"indicator":"low","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan buruk.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            17 => 
-            array (
-                'id' => 18,
-                'company_name' => 'PT. Mandiri Sejahtera 3',
-                'assessment_date' => '2025-11-06',
-                'total_score' => '16.67',
-                'risk_level' => 'high',
-                'category_scores' => '{"1":{"indicator":"low","actual_score":0,"max_score":1,"score":0},"2":{"indicator":"medium","actual_score":1,"max_score":3,"score":33.33},"3":{"indicator":"high","actual_score":0.5,"max_score":1,"score":50},"4":{"indicator":"low","actual_score":0,"max_score":0,"score":0},"5":{"indicator":"low","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan buruk.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            18 => 
-            array (
-                'id' => 19,
-                'company_name' => 'UD. Berkah 3',
-                'assessment_date' => '2025-11-07',
-                'total_score' => '15.00',
-                'risk_level' => 'high',
-                'category_scores' => '{"1":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"2":{"indicator":"high","actual_score":3,"max_score":4,"score":75},"3":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"4":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"5":{"indicator":"medium","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan buruk.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            19 => 
-            array (
-                'id' => 20,
-                'company_name' => 'PT. Prima Utama 3',
-                'assessment_date' => '2025-11-08',
-                'total_score' => '6.67',
-                'risk_level' => 'high',
-                'category_scores' => '{"1":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"2":{"indicator":"low","actual_score":1,"max_score":3,"score":33.33},"3":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"4":{"indicator":"medium","actual_score":0,"max_score":0,"score":0},"5":{"indicator":"low","actual_score":0,"max_score":0,"score":0}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan buruk.',
-                'created_at' => '2026-02-04 08:10:37',
-                'updated_at' => '2026-02-04 08:10:37',
-            ),
-            20 => 
-            array (
-                'id' => 26,
-                'company_name' => 'hjhj',
-                'assessment_date' => '2026-02-06',
-                'total_score' => '68.75',
+                'evaluated_at' => '2026-02-05',
+                'total_score' => 85.00,
+                'risk_level' => 'low',
+                'tier_criticality' => 1,
+                'vendor_status' => 'active',
+                'category_scores' => json_encode([
+                    1 => ['indicator'=>'high','score'=>90],
+                    2 => ['indicator'=>'high','score'=>85],
+                    3 => ['indicator'=>'medium','score'=>80],
+                ]),
+                'notes' => 'Kepatuhan sangat baik.',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+
+            [
+                'id' => 2,
+                'company_name' => 'CV. Sejahtera Abadi',
+                'assessor' => 'Siti Aminah',
+                'assessment_date' => '2026-02-03',
+                'evaluated_at' => '2026-02-04',
+                'total_score' => 65.00,
                 'risk_level' => 'medium',
-                'category_scores' => '{"1":{"indicator":"low","actual_score":0,"max_score":1,"score":0},"2":{"indicator":"medium","actual_score":3,"max_score":3,"score":100},"3":{"indicator":"high","actual_score":1,"max_score":1,"score":100},"4":{"indicator":"high","actual_score":3,"max_score":4,"score":75}}',
-                'notes' => 'Kepatuhan terhadap regulasi dan standar keamanan cukup baik. Terdapat isu ketidakpatuhan namun masih dalam batas toleransi Bank.',
-                'created_at' => '2026-02-06 03:10:33',
-                'updated_at' => '2026-02-06 03:13:30',
-            ),
-            21 => 
-            array (
-                'id' => 27,
-                'company_name' => 'coba',
-                'assessment_date' => '2026-02-11',
-                'total_score' => '0.00',
-                'risk_level' => NULL,
-                'category_scores' => '{"1":{"score":0,"indicator":"high","actual_score":0,"max_score":0},"2":{"score":0,"indicator":"medium","actual_score":0,"max_score":0},"3":{"score":0,"indicator":"low","actual_score":0,"max_score":0},"4":{"score":0,"indicator":"umum","actual_score":0,"max_score":0}}',
-                'notes' => NULL,
-                'created_at' => '2026-02-11 01:52:54',
-                'updated_at' => '2026-02-11 01:52:54',
-            ),
-        ));
-        
-        
+                'tier_criticality' => 2,
+                'vendor_status' => 'active',
+                'category_scores' => json_encode([
+                    1 => ['indicator'=>'medium','score'=>70],
+                    2 => ['indicator'=>'low','score'=>60],
+                    3 => ['indicator'=>'medium','score'=>65],
+                ]),
+                'notes' => 'Cukup baik.',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+
+        ]);
+
+        // Tambah 13 perusahaan random variasi
+        for ($i = 3; $i <= 15; $i++) {
+
+            $score = rand(30,95);
+
+            if ($score >= 80) {
+                $risk = 'low';
+            } elseif ($score >= 50) {
+                $risk = 'medium';
+            } else {
+                $risk = 'high';
+            }
+
+            DB::table('assessments')->insert([
+                'id' => $i,
+                'company_name' => 'PT. Vendor '.$i,
+                'assessor' => 'Assessor '.$i,
+                'assessment_date' => now()->subDays($i),
+                'evaluated_at' => now()->subDays($i-1),
+                'total_score' => $score,
+                'risk_level' => $risk,
+                'tier_criticality' => rand(1,3),
+                'vendor_status' => $i % 4 == 0 ? 'inactive' : 'active',
+                'category_scores' => json_encode([
+                    1 => ['indicator'=>'low','score'=>rand(40,90)],
+                    2 => ['indicator'=>'medium','score'=>rand(40,90)],
+                    3 => ['indicator'=>'high','score'=>rand(40,90)],
+                ]),
+                'notes' => 'Generated data.',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
     }
 }

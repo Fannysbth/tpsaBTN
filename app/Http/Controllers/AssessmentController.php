@@ -136,6 +136,12 @@ public function store(Request $request)
         $answersToCreate = [];
 
         foreach ($request->category_level as $categoryId => $level) {
+            // Jika category 0 atau nama category = Umum
+   $category = Category::find($categoryId);
+
+if ($category && strtolower($category->name) === 'umum') {
+    $level = 'umum';
+}
             $categoryScores[$categoryId] = [
                 'score' => 0,
                 'indicator' => $level,
@@ -244,6 +250,12 @@ public function update(Request $request, $id)
         $answersToCreate = [];
 
         foreach ($validated['category_level'] as $categoryId => $level) {
+            // Jika category 0 atau nama category = Umum
+    $category = Category::find($categoryId);
+
+if ($category && strtolower($category->name) === 'umum') {
+    $level = 'umum';
+}
             $categoryScores[$categoryId] = [
                 'score' => 0,
                 'indicator' => $level,

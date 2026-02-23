@@ -43,40 +43,53 @@
 @endphp
 
 @foreach($categories as $category)
+    @if($category->id == 0)
+        @continue
+    @endif
     @php
         $criteria = $category->criteria ?? [];
         $lastLevel = $selectedLevels[$category->id]['indicator'] ?? '';
     @endphp
 
-    <div class="category-row" 
+    <div class="category-row " 
          data-category-id="{{ $category->id }}" 
          data-criteria='@json($criteria)'
-         style="display:flex; align-items:center; margin-top:12px;">
+         style="display:flex; align-items:center; margin-top:12px; width:100%;">
 
         <div style="width:300px; font-weight:bold;">{{ $category->name }}</div>
 
-        <div style="width:150px; margin-right:20px;">
-            <select class="category-level" name="category_level[{{ $category->id }}]"
+        <div style="flex:1;">
+            <select class="category-level select2-multiline" name="category_level[{{ $category->id }}]"
                     style="width:100%; border:1px solid #4880FF; border-radius:6px; padding:4px 12px;">
                 <option value="">-- Pilih Level --</option>
-                <option value="low" {{ old("category_level.{$category->id}", $lastLevel) == 'low' ? 'selected' : '' }}>Low</option>
-                <option value="medium" {{ old("category_level.{$category->id}", $lastLevel) == 'medium' ? 'selected' : '' }}>Medium</option>
-                <option value="high" {{ old("category_level.{$category->id}", $lastLevel) == 'high' ? 'selected' : '' }}>High</option>
-                <option value="umum" {{ old("category_level.{$category->id}", $lastLevel) == 'umum' ? 'selected' : '' }}>Umum</option>
+
+@if(isset($criteria['low']))
+    <option value="low" {{ old("category_level.{$category->id}", $lastLevel) == 'low' ? 'selected' : '' }}>
+         {{ $criteria['low'] }}
+    </option>
+@endif
+
+@if(isset($criteria['medium']))
+    <option value="medium" {{ old("category_level.{$category->id}", $lastLevel) == 'medium' ? 'selected' : '' }}>
+         {{ $criteria['medium'] }}
+    </option>
+@endif
+
+@if(isset($criteria['high']))
+    <option value="high" {{ old("category_level.{$category->id}", $lastLevel) == 'high' ? 'selected' : '' }}>
+         {{ $criteria['high'] }}
+    </option>
+@endif
             </select>
         </div>
 
-        <div class="category-criteria" style="width:450px; font-style:italic; color:#4880FF;">
-            @if($lastLevel && isset($criteria[$lastLevel]))
-                {{ $criteria[$lastLevel] }}
-            @endif
-        </div>
+       
     </div>
 @endforeach
 
 
             {{-- BUTTONS --}}
-            <div style="display:flex; justify-content:flex-end; gap:20px;">
+            <div style="display:flex; justify-content:flex-end; gap:20px;margin-top:30px;">
                 <a href="{{ url()->previous()  }}"
                    style="border:1px solid #4880FF; padding:10px 16px; border-radius:6px; color:#4880FF; font-weight:bold; text-decoration:none;">
                     Cancel
@@ -171,6 +184,15 @@ document.addEventListener('DOMContentLoaded', function() {
             isSubmitting = false;
         }
     };
+});
+</script>
+
+<script>
+$(document).ready(function() {
+    $('.select2-multiline').select2({
+        width: '100%',
+        dropdownAutoWidth: true
+    });
 });
 </script>
 

@@ -4,21 +4,31 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\AssessmentHistory;
 
 class Assessment extends Model
 {
     use HasFactory;
   
 
-    protected $fillable = [
-    'company_name', 'assessment_date', 'total_score',
-    'risk_level', 'category_scores', 'notes', 'indicators'
+protected $fillable = [
+    'company_name',
+    'assessment_date',
+    'evaluated_at',
+    'total_score',
+    'risk_level',
+    'tier_criticality',
+    'vendor_status',
+    'category_scores',
+    'notes',
+    'indicators'
 ];
 
 protected $casts = [
     'category_scores' => 'array',
     'indicators' => 'array',
     'assessment_date' => 'date',
+    'evaluated_at' => 'date',
 ];
 
 
@@ -28,6 +38,36 @@ protected $casts = [
     return $this->hasMany(Category::class);
 }
 
+public function histories()
+{
+    return $this->hasMany(AssessmentHistory::class);
+}
+
+public function calculateTierCriticality(): void
+{
+    $scores = collect($this->category_scores ?? []);
+
+    $map = [
+        'low' => 1,
+        'medium' => 2,
+        'high' => 3,
+    ];
+
+    $total = $scores->pluck('indicator')
+                    ->filter()
+                    ->map(fn($i) => $map[$i] ?? 0)
+                    ->sum();
+
+    if ($total <= 3) {
+        $tier = 3;
+    } elseif ($total < 7) {
+        $tier = 2;
+    } else {
+        $tier = 1;
+    }
+
+    $this->tier_criticality = $tier;
+}
 
 
     public function answers()
@@ -152,10 +192,51 @@ public static function scoreToRiskLabel(float $score): string
     return 'Kurang Memadai';
 }
 
+protected static function booted()
+{
+    static::updating(function ($assessment) {
+
+        // STATUS CHANGE
+        if ($assessment->isDirty('vendor_status')) {
+            $assessment->histories()->create([
+                'change_type' => 'status',
+                'old_value'   => $assessment->getOriginal('vendor_status'),
+                'new_value'   => $assessment->vendor_status,
+            ]);
+        }
+
+        // TIER CHANGE
+        if ($assessment->isDirty('tier_criticality')) {
+            $assessment->histories()->create([
+                'change_type' => 'tier',
+                'old_value'   => $assessment->getOriginal('tier_criticality'),
+                'new_value'   => $assessment->tier_criticality,
+            ]);
+        }
+
+        // RESULT CHANGE (score / risk level)
+        if ($assessment->isDirty('total_score') || $assessment->isDirty('risk_level')) {
+
+            $old = $assessment->getOriginal('total_score') . 
+                   ' (' . $assessment->getOriginal('risk_level') . ')';
+
+            $new = $assessment->total_score . 
+                   ' (' . $assessment->risk_level . ')';
+
+            $assessment->histories()->create([
+                'change_type' => 'result',
+                'old_value'   => $old,
+                'new_value'   => $new,
+            ]);
+        }
+    });
+}
+
 
 public function calculateCategoryScores(): void
 {
     $this->loadMissing('answers');
+    
     $categories = Category::with(['questions.options'])->get();
     $categoryScores = [];
 
@@ -176,6 +257,7 @@ public function calculateCategoryScores(): void
             // === FILTER PERTANYAAN SESUAI INDIKATOR ===
             $indicators = $question->indicator;
 
+            
             if (is_string($indicators)) {
                 $decoded = json_decode($indicators, true);
                 $indicators = json_last_error() === JSON_ERROR_NONE
@@ -216,6 +298,9 @@ public function calculateCategoryScores(): void
 
     // === SIMPAN CATEGORY SCORE ===
     $this->category_scores = $categoryScores;
+    // hitung tier
+    $this->calculateTierCriticality();
+
 
     // === TOTAL SCORE = RATA-RATA CATEGORY ===
     $totalCategories = count($categoryScores);
