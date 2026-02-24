@@ -10,86 +10,80 @@ class AssessmentsTableSeeder extends Seeder
 {
     public function run(): void
     {
-        DB::table('assessments')->delete();
+        DB::table('assessments')->truncate();
 
         $now = Carbon::now();
 
-        DB::table('assessments')->insert([
+        for ($i = 1; $i <= 15; $i++) {
 
-            [
-                'id' => 1,
-                'company_name' => 'PT. Maju Bersama',
-                'assessor' => 'Budi Santoso',
-                'assessment_date' => '2026-02-04',
-                'evaluated_at' => '2026-02-05',
-                'total_score' => 85.00,
-                'risk_level' => 'low',
-                'tier_criticality' => 1,
-                'vendor_status' => 'active',
-                'category_scores' => json_encode([
-                    1 => ['indicator'=>'high','score'=>90],
-                    2 => ['indicator'=>'high','score'=>85],
-                    3 => ['indicator'=>'medium','score'=>80],
-                ]),
-                'notes' => 'Kepatuhan sangat baik.',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-
-            [
-                'id' => 2,
-                'company_name' => 'CV. Sejahtera Abadi',
-                'assessor' => 'Siti Aminah',
-                'assessment_date' => '2026-02-03',
-                'evaluated_at' => '2026-02-04',
-                'total_score' => 65.00,
-                'risk_level' => 'medium',
-                'tier_criticality' => 2,
-                'vendor_status' => 'active',
-                'category_scores' => json_encode([
-                    1 => ['indicator'=>'medium','score'=>70],
-                    2 => ['indicator'=>'low','score'=>60],
-                    3 => ['indicator'=>'medium','score'=>65],
-                ]),
-                'notes' => 'Cukup baik.',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-
-        ]);
-
-        // Tambah 13 perusahaan random variasi
-        for ($i = 3; $i <= 15; $i++) {
-
-            $score = rand(30,95);
-
-            if ($score >= 80) {
-                $risk = 'low';
-            } elseif ($score >= 50) {
-                $risk = 'medium';
-            } else {
-                $risk = 'high';
-            }
+            $score = rand(30, 95);
+            $risk  = $this->determineRisk($score);
+            $tier  = $this->determineTier();
 
             DB::table('assessments')->insert([
-                'id' => $i,
-                'company_name' => 'PT. Vendor '.$i,
-                'assessor' => 'Assessor '.$i,
-                'assessment_date' => now()->subDays($i),
-                'evaluated_at' => now()->subDays($i-1),
-                'total_score' => $score,
-                'risk_level' => $risk,
-                'tier_criticality' => rand(1,3),
-                'vendor_status' => $i % 4 == 0 ? 'inactive' : 'active',
-                'category_scores' => json_encode([
-                    1 => ['indicator'=>'low','score'=>rand(40,90)],
-                    2 => ['indicator'=>'medium','score'=>rand(40,90)],
-                    3 => ['indicator'=>'high','score'=>rand(40,90)],
-                ]),
-                'notes' => 'Generated data.',
-                'created_at' => $now,
-                'updated_at' => $now,
+                'company_name'     => $i === 1 ? 'PT. Maju Bersama' :
+                                      ($i === 2 ? 'CV. Sejahtera Abadi' : 'PT. Vendor '.$i),
+
+                'assessor'         => $i === 1 ? 'Budi Santoso' :
+                                      ($i === 2 ? 'Siti Aminah' : 'Assessor '.$i),
+
+                'assessment_date'  => now()->subDays($i),
+                'evaluated_at'     => now()->subDays($i - 1),
+
+                'total_score'      => $score,
+                'risk_level'       => $risk,
+                'tier_criticality' => $tier,
+                'vendor_status'    => $i % 4 === 0 ? 'inactive' : 'active',
+
+                'category_scores'  => json_encode($this->generateCategoryScores()),
+
+                'notes'            => 'Generated seed data.',
+                'created_at'       => $now,
+                'updated_at'       => $now,
             ]);
         }
+    }
+
+    private function determineRisk($score): string
+    {
+        if ($score >= 80) return 'low';
+        if ($score >= 50) return 'medium';
+        return 'high';
+    }
+
+    private function determineTier(): string
+    {
+        return match (rand(1,3)) {
+            1 => 'Tier 1',
+            2 => 'Tier 2',
+            default => 'Tier 3',
+        };
+    }
+
+    private function generateCategoryScores(): array
+    {
+        return [
+            1 => [
+                'indicator'     => 'low',
+                'actual_score'  => rand(40, 80),
+                'max_score'     => 100,
+                'score'         => rand(40, 90),
+                'justification' => 'Risiko operasional rendah, kontrol internal memadai.'
+            ],
+            2 => [
+                'indicator'     => 'medium',
+                'actual_score'  => rand(50, 85),
+                'max_score'     => 100,
+                'score'         => rand(50, 85),
+                'justification' => 'Terdapat beberapa gap minor namun masih dalam toleransi.'
+            ],
+            3 => [
+                'indicator'     => 'high',
+                'actual_score'  => rand(60, 95),
+                'max_score'     => 100,
+                'score'         => rand(60, 95),
+                'justification' => 'Vendor memiliki akses ke sistem kritikal dan data sensitif.'
+            ],
+        ];
     }
 }

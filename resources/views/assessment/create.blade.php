@@ -41,6 +41,12 @@
 @php
     $selectedLevels = $assessment->category_scores ?? [];
 @endphp
+<div style="background:#F1F3F9; padding:10px; border-radius:10px; font-weight:600; display:flex;">
+                <div style="flex:2;">Kategori</div>
+                <div style="flex:2;">Kriteria</div>
+                <div style="flex:1;">Justifikasi</div>
+            </div>
+
 
 @foreach($categories as $category)
     @if($category->id == 0)
@@ -51,17 +57,18 @@
         $lastLevel = $selectedLevels[$category->id]['indicator'] ?? '';
     @endphp
 
+    
     <div class="category-row " 
          data-category-id="{{ $category->id }}" 
          data-criteria='@json($criteria)'
          style="display:flex; align-items:center; margin-top:12px; width:100%;">
 
-        <div style="width:300px; font-weight:bold;">{{ $category->name }}</div>
+        <div style="width:200px; font-weight:bold;">{{ $category->name }}</div>
 
         <div style="flex:1;">
             <select class="category-level select2-multiline" name="category_level[{{ $category->id }}]"
                     style="width:100%; border:1px solid #4880FF; border-radius:6px; padding:4px 12px;">
-                <option value="">-- Pilih Level --</option>
+                <option value=""> </option>
 
 @if(isset($criteria['low']))
     <option value="low" {{ old("category_level.{$category->id}", $lastLevel) == 'low' ? 'selected' : '' }}>
@@ -81,8 +88,16 @@
     </option>
 @endif
             </select>
+            
         </div>
-
+<div style="flex:1; margin-left:12px;">
+    <textarea 
+        name="category_justification[{{ $category->id }}]"
+        placeholder="Masukkan justification..."
+        style="width:100%; border:1px solid #4880FF; border-radius:6px; padding:8px 12px; resize:vertical; min-height:60px;">
+        {{ old("category_justification.{$category->id}", $selectedLevels[$category->id]['justification'] ?? '') }}
+    </textarea>
+</div>
        
     </div>
 @endforeach
@@ -112,9 +127,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const criteriaDiv = row.querySelector('.category-criteria');
 
         function updateCriteria() {
-            const level = select.value;
-            criteriaDiv.textContent = level && criteria[level] ? criteria[level] : '';
-        }
+    const level = select.value;
+    if (criteriaDiv) {
+        criteriaDiv.textContent = level && criteria[level] ? criteria[level] : '';
+    }
+}
 
         // Update saat halaman load
         updateCriteria();

@@ -7,15 +7,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Assessment;
 use App\Models\Category;
 use App\Models\Question;
-use App\Models\Answer;
 use Illuminate\Http\Request;
 use App\Exports\AssessmentExport;
 use App\Imports\AssessmentImport;
 use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\Mail;
-use App\Mail\AssessmentReport;
+
 use Illuminate\Support\Facades\Log;
 use App\Exports\AssessmentReportExport;
+use App\Models\AssessmentHistory;
 
 
 
@@ -124,6 +123,7 @@ public function store(Request $request)
         'category_level' => 'required|array',
         'category_level.*' => 'in:low,medium,high,umum',
     ]);
+    $justifications = $request->input('category_justification', []);
 
     // debug awal
     Log::info('Assessment store request', $request->all());
@@ -143,11 +143,13 @@ if ($category && strtolower($category->name) === 'umum') {
     $level = 'umum';
 }
             $categoryScores[$categoryId] = [
-                'score' => 0,
-                'indicator' => $level,
-                'actual_score' => 0,
-                'max_score' => 0,
-            ];
+    'score' => 0,
+    'indicator' => $level,
+    'assessor' => null,
+    'justification' => $justifications[$categoryId] ?? null,
+    'actual_score' => 0,
+    'max_score' => 0,
+];
 
             $questions = Question::where('category_id', $categoryId)
                 ->where('is_active', true)
@@ -231,82 +233,126 @@ public function update(Request $request, $id)
 
     $validated = $request->validate([
         'company_name' => 'required|string|max:255',
+        'vendor_status' => 'nullable|string',
+        'tier_criticality' => 'nullable|string',
         'category_level' => 'required|array',
         'category_level.*' => 'in:low,medium,high,umum'
     ]);
+    $justifications = $request->input('category_justification', []);
 
     DB::beginTransaction();
+
     try {
-        // 1. Update nama perusahaan
-        $assessment->update([
-            'company_name' => $validated['company_name']
-        ]);
 
-        // 2. Hapus semua jawaban lama
-        $assessment->answers()->delete();
+        /*
+        =========================================
+        SNAPSHOT OLD STATE
+        =========================================
+        */
 
-        // 3. Reset category_scores sesuai indikator baru
+        $oldSnapshot = [
+            'company_name' => $assessment->company_name,
+            'vendor_status' => $assessment->vendor_status,
+            'tier_criticality' => $assessment->tier_criticality,
+            'category_scores' => $assessment->category_scores,
+        ];
+
+        /*
+        =========================================
+        BUILD CATEGORY METADATA ONLY
+        =========================================
+        */
+
         $categoryScores = [];
-        $answersToCreate = [];
 
         foreach ($validated['category_level'] as $categoryId => $level) {
-            // Jika category 0 atau nama category = Umum
-    $category = Category::find($categoryId);
 
-if ($category && strtolower($category->name) === 'umum') {
-    $level = 'umum';
-}
-            $categoryScores[$categoryId] = [
-                'score' => 0,
-                'indicator' => $level,
-                'actual_score' => 0,
-                'max_score' => 0
-            ];
+            $category = Category::find($categoryId);
 
-            // Ambil pertanyaan sesuai indikator
-            $questions = Question::where('category_id', $categoryId)
-                ->where('is_active', true)
-                ->where(function($query) use ($level) {
-                    $query->whereJsonContains('indicator', $level)
-                          ->orWhere('indicator', 'LIKE', "%{$level}%");
-                })
-                ->orderBy('order_index')
-                ->get();
-
-
-
-            foreach ($questions as $question) {
-                $answersToCreate[] = [
-                    'question_id' => $question->id,
-                    'answer_text' =>  null,
-                    'score' => 0
-                ];
+            if ($category && strtolower($category->name) === 'umum') {
+                $level = 'umum';
             }
+
+            $existing = $assessment->category_scores[$categoryId] ?? [];
+
+            $categoryScores[$categoryId] = [
+                'indicator' => $level,
+                'assessor' => $existing['assessor'] ?? null,
+                'justification' => $justifications[$categoryId] ?? ($existing['justification'] ?? null),
+                'actual_score' => $existing['actual_score'] ?? 0,
+                'max_score' => $existing['max_score'] ?? 0,
+                'score' => $existing['score'] ?? 0,
+            ];
         }
 
-        // 4. Update category_scores & reset total score / risk level
-        $assessment->update([
+        /*
+        =========================================
+        UPDATE MODEL
+        =========================================
+        */
+
+        $assessment->fill([
+            'company_name' => $validated['company_name'],
+            'vendor_status' => $validated['vendor_status'] ?? $assessment->vendor_status,
+            'tier_criticality' => $validated['tier_criticality'] ?? $assessment->tier_criticality,
             'category_scores' => $categoryScores,
-            'total_score' => 0,
-            'risk_level' => null
+            'evaluated_at' => now()
         ]);
 
-        // 5. Simpan jawaban baru
-        foreach ($answersToCreate as $answerData) {
-            $assessment->answers()->create($answerData);
-        }
+        $assessment->calculateTierCriticality();
+        $assessment->save();
+
+        /*
+        =========================================
+        SNAPSHOT NEW STATE
+        =========================================
+        */
+
+        $newSnapshot = [
+            'company_name' => $assessment->company_name,
+            'vendor_status' => $assessment->vendor_status,
+            'tier_criticality' => $assessment->tier_criticality,
+            'category_scores' => $assessment->category_scores,
+        ];
+
+        /*
+        =========================================
+        AUDIT HISTORY → STATUS ONLY
+        =========================================
+        */
+
+        $changeType = null;
+
+if (($oldSnapshot['vendor_status'] ?? null) !== ($newSnapshot['vendor_status'] ?? null)) {
+    $changeType = 'status';
+}
+
+if (($oldSnapshot['tier_criticality'] ?? null) !== ($newSnapshot['tier_criticality'] ?? null)) {
+    $changeType = 'tier';
+}
+
+if ($changeType) {
+    AssessmentHistory::create([
+        'assessment_id' => $assessment->id,
+        'change_type' => $changeType,
+        'old_value' => $oldSnapshot,
+        'new_value' => $newSnapshot
+    ]);
+}
 
         DB::commit();
 
-        // Redirect kembali ke halaman list yang disimpan di session
-return redirect()->route('assessment.show', $assessment->id)
-       ->with('success', 'Assessment berhasil diperbarui. Jawaban lama dihapus dan siap diisi ulang.');
+        return redirect()
+            ->route('assessment.show', $assessment->id)
+            ->with('success', 'Assessment berhasil diperbarui');
 
+    } catch (\Throwable $e) {
 
-    } catch (\Exception $e) {
         DB::rollBack();
-        Log::error('Assessment update error: ' . $e->getMessage());
-        return back()->with('error', 'Gagal memperbarui assessment: '.$e->getMessage())->withInput();
+
+        Log::error('Assessment update error: '.$e->getMessage());
+
+        return back()->with('error', 'Gagal memperbarui assessment');
     }
 }
 
@@ -366,30 +412,83 @@ public function destroy(Assessment $assessment)
     }
 }
 
+private function determineChangeType(array $old, array $new): string
+{
+    if ($old['company_name'] !== $new['company_name']) {
+        return 'tier';
+    }
 
-    public function show(Assessment $assessment)
+    if (($old['tier_criticality'] ?? null) !== ($new['tier_criticality'] ?? null)) {
+        return 'tier';
+    }
+
+    if (($old['vendor_status'] ?? null) !== ($new['vendor_status'] ?? null)) {
+        return 'status';
+    }
+
+    return 'tier';
+}
+ public function show(Assessment $assessment)
 {
     $assessment->load('answers.question.category', 'answers.question.options');
 
-    $categories = Category::with(['questions' => function($q) use ($assessment) {
-        $q->where('is_active', true)
-          ->orderBy('order_index')
-          ->where(function($query) use ($assessment) {
-              // Ambil indikator yang dipilih untuk kategori ini
-              $categoryId = $query->getModel()->category_id;
-              $selectedIndicator = $assessment->category_scores[$categoryId]['indicator'] ?? null;
-              
-              if ($selectedIndicator) {
-                  $query->whereJsonContains('indicator', $selectedIndicator);
-              }
-          });
-    }])->get();
+    $categories = Category::all();
 
-    return view('assessment.show', compact('assessment', 'categories'));
+    $month = request('month');
+    $year  = request('year');
+
+    // LEFT SIDE (status & tier) + FILTER
+    $historyDetails = AssessmentHistory::where('assessment_id', $assessment->id)
+        ->whereIn('change_type', ['status', 'tier'])
+        ->when($month, function($query) use ($month){
+            $query->whereMonth('created_at', $month);
+        })
+        ->when($year, function($query) use ($year){
+            $query->whereYear('created_at', $year);
+        })
+        ->orderByDesc('created_at')
+        ->get();
+
+    // RIGHT SIDE (result upload) + FILTER
+    $historyScores = AssessmentHistory::where('assessment_id', $assessment->id)
+        ->where('change_type', 'result')
+        ->when($month, function($query) use ($month){
+            $query->whereMonth('created_at', $month);
+        })
+        ->when($year, function($query) use ($year){
+            $query->whereYear('created_at', $year);
+        })
+        ->orderByDesc('created_at')
+        ->get();
+
+    return view('assessment.show', compact(
+        'assessment',
+        'categories',
+        'historyDetails',
+        'historyScores'
+    ));
 }
 
 
+public function exportBlankHistory($id)
+{
+    $history = AssessmentHistory::findOrFail($id);
 
+    return Excel::download(
+        new AssessmentExport($history), // nanti export class baca dari snapshot
+        'assessment_blank_'.$history->id.'.xlsx'
+    );
+}
+
+public function exportResultHistory($id)
+{
+    $history = AssessmentHistory::findOrFail($id);
+
+    return Excel::download(
+        new AssessmentExport($history, true),
+        'assessment_result_'.$history->id.'.xlsx'
+    );
+}
 
     public function export(Assessment $assessment)
     {
@@ -412,72 +511,103 @@ public function destroy(Assessment $assessment)
         'excel_file' => 'required|file|mimes:xls,xlsx|max:5120',
     ]);
 
+    DB::beginTransaction();
+
     try {
+
+        /*
+        ----------------------------------
+        OLD SNAPSHOT BEFORE IMPORT
+        ----------------------------------
+        */
+
+        $oldSnapshot = [
+    'evaluated_at' => $assessment->evaluated_at,
+    'assessor' => $assessment->assessor ?? null,
+    'vendor_status' => $assessment->vendor_status ?? null,
+    'tier_criticality' => $assessment->tier_criticality ?? null,
+    'total_score' => $assessment->total_score,
+    'risk_level' => $assessment->risk_level,
+    'category_scores' => $assessment->category_scores,
+
+    /*
+    ----------------------------------
+    ANSWER REFERENCE ONLY
+    ----------------------------------
+    */
+
+    'answer_ids' => $assessment->answers()
+        ->where('is_active', true)
+        ->pluck('id')
+        ->toArray()
+];
+        /*
+        ----------------------------------
+        IMPORT EXCEL
+        ----------------------------------
+        */
+
         $file = $request->file('excel_file');
 
-        // --- Load Excel ---
-        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getPathname());
-        $sheet = $spreadsheet->getActiveSheet();
-
-        // --- Ambil header (baris pertama) ---
-        $header = [];
-        foreach ($sheet->getRowIterator(1, 1) as $row) {
-            $cellIterator = $row->getCellIterator();
-            $cellIterator->setIterateOnlyExistingCells(false);
-            foreach ($cellIterator as $cell) {
-                $header[] = trim((string)$cell->getValue());
-            }
-        }
-
-        // --- Kolom wajib sesuai template ---
-        $requiredColumns = ['SUB KATEGORI', 'NO', 'PERTANYAAN', ':', 'JAWABAN', 'ATTACHMENT'];
-
-        $missingColumns = array_diff($requiredColumns, $header);
-
-        if (!empty($missingColumns)) {
-            return redirect()
-                ->route('assessment.index')
-                ->with('import_errors', [
-                    'Template Excel tidak sesuai.',
-                    'Kolom hilang: ' . implode(', ', $missingColumns)
-                ]);
-        }
-
-        // --- Jalankan import ---
         Excel::import(new AssessmentImport($assessment), $file);
+
+        $assessment->evaluated_at = now();
+
+        $assessment->calculateCategoryScores();
+        $assessment->calculateTierCriticality();
+
+        $assessment->save();
+
+        /*
+        ----------------------------------
+        NEW SNAPSHOT AFTER IMPORT
+        ----------------------------------
+        */
+
+       $newSnapshot = [
+    'evaluated_at' => $assessment->evaluated_at,
+    'assessor' => $assessment->assessor ?? null,
+    'vendor_status' => $assessment->vendor_status ?? null,
+    'tier_criticality' => $assessment->tier_criticality ?? null,
+    'total_score' => $assessment->total_score,
+    'risk_level' => $assessment->risk_level,
+    'category_scores' => $assessment->category_scores,
+
+    'answer_ids' => $assessment->answers()
+        ->where('is_active', true)
+        ->pluck('id')
+        ->toArray()
+];
+
+        /*
+        ----------------------------------
+        HISTORY RESULT
+        ----------------------------------
+        */
+
+        AssessmentHistory::create([
+            'assessment_id' => $assessment->id,
+            'change_type' => 'result',
+
+            'old_value' => $oldSnapshot,
+            'new_value' => $newSnapshot
+        ]);
+
+        DB::commit();
 
         return redirect()
             ->route('assessment.index')
             ->with('success', 'Data berhasil diimport.');
 
-    } catch (\Illuminate\Validation\ValidationException $e) {
-
-        // 🔥 Ambil semua error dari Import Class
-        $errors = collect($e->errors())->flatten()->toArray();
-
-        return redirect()
-            ->route('assessment.index')
-            ->with('import_errors', $errors);
-
-    } catch (\PhpOffice\PhpSpreadsheet\Reader\Exception $e) {
-
-        return redirect()
-            ->route('assessment.index')
-            ->with('import_errors', [
-                'File Excel tidak bisa dibaca.',
-                'Pastikan file tidak corrupt dan format .xlsx atau .xls.'
-            ]);
-
     } catch (\Throwable $e) {
+
+        DB::rollBack();
 
         Log::error('Assessment import error: ' . $e->getMessage());
 
         return redirect()
             ->route('assessment.index')
-            ->with('import_errors', [
-                'Terjadi kesalahan saat proses import.',
-                $e->getMessage()
-            ]);
+            ->with('import_errors', ['Import gagal', $e->getMessage()]);
     }
 }
 

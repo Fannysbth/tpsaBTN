@@ -19,8 +19,8 @@ return new class extends Migration
             $table->enum('change_type', ['status', 'tier', 'result']);
 
             // nilai lama & baru
-            $table->string('old_value')->nullable();
-            $table->string('new_value')->nullable();
+            $table->json('old_value')->nullable();
+            $table->json('new_value')->nullable();
 
             $table->timestamps();
         });

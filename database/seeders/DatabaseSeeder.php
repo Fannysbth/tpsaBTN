@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
         $this->call(QuestionOptionsTableSeeder::class);
         $this->call(AssessmentsTableSeeder::class);
         $this->call(AnswersTableSeeder::class);
+        $this->call(AssessmentHistoriesTableSeeder::class);
         $this->call(CacheTableSeeder::class);
         $this->call(CacheLocksTableSeeder::class);
         $this->call(MigrationsTableSeeder::class);

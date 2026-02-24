@@ -137,7 +137,7 @@ class QuestionnaireImport implements ToCollection
                 continue;
             }
 
-            if (!$currentCategoryId) continue;
+           if ($currentCategoryId === null) continue;
 
             /**
              * PARSE INDICATOR (V)

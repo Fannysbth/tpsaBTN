@@ -30,7 +30,12 @@ return new class extends Migration
             $table->enum('risk_level', ['high', 'medium', 'low'])->nullable();
 
             // Tier Criticality (1,2,3)
-            $table->unsignedTinyInteger('tier_criticality')->nullable();
+            $table->enum('tier_criticality', [
+                'Tier 1',
+                'Tier 2',
+                'Tier 3'
+            ])->nullable();
+
 
             // Status Vendor
             $table->enum('vendor_status', ['active', 'inactive'])

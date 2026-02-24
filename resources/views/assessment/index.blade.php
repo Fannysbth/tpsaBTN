@@ -96,12 +96,12 @@
         <div>No</div>
         <div style= "text-align:center;">Date</div>
         <div>Company Name</div>
+        
+        <div style= "text-align:center;">Tier Criticality</div>
         <div style= "text-align:center;">Risk Level</div>
-        <div style= "text-align:center;">Action</div>
         <div style= "text-align:center;">Detail</div>
     </div>
 
-    {{-- TABLE DATA --}}
     {{-- TABLE DATA --}}
 <div id="assessment-table-body">
     @forelse($assessments as $index => $assessment)
@@ -109,39 +109,9 @@
             <div>{{ $index + 1 }}</div>
             <div style= "text-align:center;">{{ $assessment->assessment_date->format('d/m/Y') }}</div>
             <div>{{ $assessment->company_name }}</div>
+            <div style= "text-align:center;">{{ $assessment->tier_criticality ?? '-' }}</div>
             <div style= "text-align:center;">{{ $assessment->risk_level_label ? strtoupper($assessment->risk_level_label) : '-' }}</div>
 
-            <div class="action-btns" style="display:flex; justify-content:center; gap:5px; flex-wrap: wrap;">
-                
-                <form action="{{ route('assessment.import', $assessment) }}"
-      method="POST"
-      enctype="multipart/form-data">
-    @csrf
-    <a href="{{ route('assessment.export', $assessment) }}" class="btn btn-sm btn-success" style="width: 80px;">
-                    Export
-                </a>
-
-    <label for="excel_file"
-            class="btn btn-sm btn-warning"
-            style="
-               font-weight:bold;
-               width: 80px;
-           "
-           >
-        Upload
-    </label>
-
-    <input type="file"
-           id="excel_file"
-           name="excel_file"
-           accept=".xls,.xlsx"
-           required
-           style="display:none"
-           onchange="this.form.submit()">
-</form>
-
-                
-            </div>
 
             <div style="text-align: center;">
                 <a href="{{ route('assessment.show', $assessment->id) }}">

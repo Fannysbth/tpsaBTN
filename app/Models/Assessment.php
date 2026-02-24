@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\AssessmentHistory;
+use Illuminate\Support\Facades\Log;
 
 class Assessment extends Model
 {
@@ -45,28 +46,69 @@ public function histories()
 
 public function calculateTierCriticality(): void
 {
+    Log::info('===== TIER CALCULATION DEBUG START =====');
+
     $scores = collect($this->category_scores ?? []);
+
+    Log::info('Raw Category Scores', [
+        'category_scores' => $scores->toArray()
+    ]);
 
     $map = [
         'low' => 1,
         'medium' => 2,
-        'high' => 3,
+        'high' => 3
     ];
 
-    $total = $scores->pluck('indicator')
-                    ->filter()
-                    ->map(fn($i) => $map[$i] ?? 0)
-                    ->sum();
+    /*
+    --------------------------------------------------
+    CONVERT INDICATOR → NUMERIC RISK VALUE
+    --------------------------------------------------
+    */
 
-    if ($total <= 3) {
-        $tier = 3;
-    } elseif ($total < 7) {
-        $tier = 2;
-    } else {
-        $tier = 1;
+    $values = $scores->pluck('indicator')
+        ->filter()
+        ->map(function ($i) use ($map) {
+            return $map[$i] ?? 0;
+        })
+        ->values();
+
+    Log::info('Mapped Risk Values', [
+        'values' => $values->toArray(),
+        'count' => $values->count()
+    ]);
+
+    if ($values->count() === 0) {
+        $this->tier_criticality = 'Tier 1';
+
+        Log::info('No indicator found → Default Tier 1');
+        Log::info('===== TIER CALCULATION DEBUG END =====');
+
+        return;
     }
 
+
+    /*
+    --------------------------------------------------
+    TIER DECISION
+    --------------------------------------------------
+    */
+
+    if ($values->sum() <= 3) {
+        $tier = 'Tier 3';
+    } elseif ($values->sum() < 7) {
+        $tier = 'Tier 2';
+    } else {
+        $tier = 'Tier 1';
+    }
+
+    Log::info('Computed Tier Criticality', [
+        'tier' => $tier
+    ]);
+
     $this->tier_criticality = $tier;
+
+    Log::info('===== TIER CALCULATION DEBUG END =====');
 }
 
 
@@ -192,45 +234,7 @@ public static function scoreToRiskLabel(float $score): string
     return 'Kurang Memadai';
 }
 
-protected static function booted()
-{
-    static::updating(function ($assessment) {
 
-        // STATUS CHANGE
-        if ($assessment->isDirty('vendor_status')) {
-            $assessment->histories()->create([
-                'change_type' => 'status',
-                'old_value'   => $assessment->getOriginal('vendor_status'),
-                'new_value'   => $assessment->vendor_status,
-            ]);
-        }
-
-        // TIER CHANGE
-        if ($assessment->isDirty('tier_criticality')) {
-            $assessment->histories()->create([
-                'change_type' => 'tier',
-                'old_value'   => $assessment->getOriginal('tier_criticality'),
-                'new_value'   => $assessment->tier_criticality,
-            ]);
-        }
-
-        // RESULT CHANGE (score / risk level)
-        if ($assessment->isDirty('total_score') || $assessment->isDirty('risk_level')) {
-
-            $old = $assessment->getOriginal('total_score') . 
-                   ' (' . $assessment->getOriginal('risk_level') . ')';
-
-            $new = $assessment->total_score . 
-                   ' (' . $assessment->risk_level . ')';
-
-            $assessment->histories()->create([
-                'change_type' => 'result',
-                'old_value'   => $old,
-                'new_value'   => $new,
-            ]);
-        }
-    });
-}
 
 
 public function calculateCategoryScores(): void
@@ -288,18 +292,23 @@ public function calculateCategoryScores(): void
             ? round(($actualScore / $maxScore) * 100, 2)
             : 0;
 
-        $categoryScores[$category->id] = [
-            'indicator'     => $indicator,
-            'actual_score'  => $actualScore,
-            'max_score'     => $maxScore,
-            'score'         => $percentage,
-        ];
+        $existing = $this->category_scores[$category->id] ?? [];
+
+$categoryScores[$category->id] = [
+    'indicator'     => $indicator,
+    'assessor'      => $existing['assessor'] ?? null,
+    'justification' => $existing['justification'] ?? null,
+    'actual_score'  => $actualScore,
+    'max_score'     => $maxScore,
+    'score'         => $percentage,
+];
     }
 
     // === SIMPAN CATEGORY SCORE ===
     $this->category_scores = $categoryScores;
     // hitung tier
     $this->calculateTierCriticality();
+    $this->save();
 
 
     // === TOTAL SCORE = RATA-RATA CATEGORY ===

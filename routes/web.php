@@ -99,3 +99,11 @@ Route::get('/questionnaire/export', [QuestionnaireController::class, 'export'])-
 
 Route::post('/dashboard/export-ppt', [DashboardController::class, 'exportPpt'])
     ->name('dashboard.export.ppt');
+
+Route::get('/assessment/history/{id}/export-blank',
+    [AssessmentController::class, 'exportBlankHistory']
+)->name('assessment.export.blank');
+
+Route::get('/assessment/history/{id}/export-result',
+    [AssessmentController::class, 'exportResultHistory']
+)->name('assessment.export.result');

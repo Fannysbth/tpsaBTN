@@ -65,8 +65,23 @@
 
     {{-- CHART CONTAINER --}}
     <div class="chart-container">
+
+        {{-- TIER PIE CHART --}}
+    <div id="card-chart-1" class="chart-card export-card">
+        <div class="chart-header">
+            <h3>
+                <i class="fa-solid fa-chart-pie" style="color: #8280FF; margin-right: 10px;"></i>
+                Company Distribution by Tier
+            </h3>
+        </div>
+
+        <div class="chart-body">
+            <canvas id="tierPieChart"></canvas>
+        </div>
+    </div>
+
         {{-- VENDOR PERFORMANCE CHART --}}
-        <div id="card-chart-1" class="chart-card export-card">
+        {{-- <div id="card-chart-1" class="chart-card export-card">
             <div class="chart-header">
                 <h3>
                     <i class="fa-solid fa-chart-bar" style="color: #8280FF; margin-right: 10px;"></i>
@@ -90,10 +105,88 @@
                     <span>Kurang Memadai</span>
                 </div>
             </div>
-        </div>
+        </div> --}}
+
+        {{-- HEATMAP TPSA RISK TIER --}}
+<div id="card-chart-2" class="heatmap-card export-card">
+    <div class="chart-header">
+        <h3>
+            <i class="fa-solid fa-fire" style="color:#FF6B6B;margin-right:10px;"></i>
+            TPSA Risk Tier Heatmap
+        </h3>
+    </div>
+
+    <div class="heatmap-body">
+        <table class="heatmap-table">
+            <thead>
+                <tr>
+                    <th>Risk Level</th>
+
+                    @foreach(array_keys($heatmapRiskTier ?? []) as $tier)
+                        <th>{{ $tier }}</th>
+                    @endforeach
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach($heatmapRiskTier ?? [] as $riskLevel => $tiers)
+
+                    <tr>
+                        <td class="vendor-name">{{ $riskLevel }}</td>
+
+                        @foreach($tiers as $tierData)
+                            @php
+    $count = $tierData['count'] ?? 0;
+    $vendors = $tierData['vendors'] ?? [];
+    $color = $tierData['color'] ?? '#ffffff';
+
+    $textColor = '#000';
+    if (!empty($color)) {
+        // simple luminance heuristic
+        $textColor = '#fff';
+    }
+
+    $tooltip = empty($vendors)
+        ? 'No vendor'
+        : implode("\n", $vendors);
+@endphp
+
+<td class="heatmap-cell"
+    style="background:{{ $color }};color:{{ $textColor }};"
+    title="{{ $tooltip }}">
+
+    {{ $count }}
+</td>
+                        @endforeach
+                    </tr>
+
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+    <div class="heatmap-gradient-legend">
+
+    <div class="gradient-bar"
+         style="background: linear-gradient(
+            to right,
+            {{ $legendGradient['low'] ?? '#FF6B6B' }},
+            {{ $legendGradient['medium'] ?? '#FEC53D' }},
+            {{ $legendGradient['high'] ?? '#4AD991' }}
+         );">
+    </div>
+
+    <div class="gradient-labels">
+        <span>0</span>
+        <span>{{ round($legendMax / 2) }}</span>
+        <span>{{ round($legendMax * 0.8) }}</span>
+        <span>{{ $legendMax }}</span>
+    </div>
+
+</div>
+</div>
 
         {{-- HEATMAP SECTION --}}
-        <div id="card-chart-2" class="heatmap-card export-card">
+        {{-- <div id="card-chart-2" class="heatmap-card export-card">
             <div class="chart-header">
                 <h3>
                     <i class="fa-solid fa-fire" style="color: #FF6B6B; margin-right: 10px;"></i>
@@ -177,7 +270,7 @@
                     <span>Tidak ada data</span>
                 </div>
             </div>
-        </div>
+        </div> --}}
     </div>
     
 
@@ -236,6 +329,57 @@ document.getElementById('exportPpt').addEventListener('click', async () => {
 {{-- Chart.js --}}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    document.addEventListener("DOMContentLoaded", function () {
+
+    const tierData = @json($pieTierChart ?? []);
+
+    const ctx = document.getElementById('tierPieChart');
+
+    if (!ctx || !tierData.labels) return;
+
+    const total = tierData.values.reduce((a, b) => a + b, 0);
+
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: tierData.labels,
+            datasets: [{
+                data: tierData.values,
+                backgroundColor: [
+                    '#FF6B6B',
+                    '#FEC53D',
+                    '#4AD991'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                datalabels: {
+                    color: '#fff',
+                    font: {
+                        weight: 'bold',
+                        size: 14
+                    },
+                    formatter: function(value) {
+
+                        if (!value) return '';
+
+                        const percentage = ((value / total) * 100).toFixed(1);
+
+                        return value + '\n(' + percentage + '%)';
+                    }
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+
+});
 document.addEventListener('DOMContentLoaded', function() {
     const colors = {!! json_encode($vendorScoresChart['colors'] ?? [], JSON_THROW_ON_ERROR) !!};
     const labels = {!! json_encode($vendorScoresChart['labels'] ?? [], JSON_THROW_ON_ERROR) !!};
@@ -305,6 +449,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 
 <style>
 
@@ -319,6 +464,12 @@ document.addEventListener('DOMContentLoaded', function() {
     display: flex;
     gap: 12px;
 }
+#tierPieChart {
+    max-width: 260px;
+    max-height: 260px;
+    margin: auto;
+    display: block;
+} 
 
 .filter-group select {
     padding: 8px 16px;
@@ -509,13 +660,11 @@ document.addEventListener('DOMContentLoaded', function() {
     gap: 8px;
 }
 
-.legend-color {
-    width: 20px;
-    height: 20px;
+.legend-color{
+    width: 18px;
+    height: 18px;
     border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: inline-block;
 }
 
 .legend-color.high {
@@ -533,6 +682,24 @@ document.addEventListener('DOMContentLoaded', function() {
 .legend-color.no-data {
     background: #f8f9fa;
     border: 1px solid #ddd;
+}
+
+.heatmap-gradient-legend{
+    width: 320px;
+    margin: 10px auto;
+}
+
+.gradient-bar{
+    height: 18px;
+    border-radius: 6px;
+}
+
+.gradient-labels{
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-top: 4px;
+    color: #666;
 }
 
 /* RESPONSIVE DESIGN */
