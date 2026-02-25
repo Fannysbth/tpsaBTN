@@ -11,19 +11,45 @@
 
 <div style="max-width: 1202px; box-sizing: border-box; background: #F5F6FA; padding-top: 10px; margin-left: 20px;">
 
-    {{-- FORM CARD --}}
-    <div style="background:#FFFFFF; border-radius:14px; padding:26px; margin:0 20px 60px 16px; box-shadow:6px 6px 54px #0000000D;">
-
-        <span style="font-size:24px; font-weight:bold;">
-            {{ $assessment ? 'Edit Assessment' : 'Add Assessment' }}
-        </span>
-        <div style="width:227px; height:2px; background:#4880FF; margin:8px 0 20px;"></div>
+           
 
         <form action="{{ $assessment ? route('assessment.update', $assessment->id) : route('assessment.store') }}" method="POST" id="assessmentForm">
             @csrf
             @if($assessment)
                 @method('PUT')
             @endif
+            {{-- FORM CARD --}}
+    <div style="background:#FFFFFF; border-radius:14px; padding:26px; margin:0 20px 60px 16px; box-shadow:6px 6px 54px #0000000D;">
+
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+<div>
+    <span style="font-size:24px; font-weight:bold;">
+        {{ $assessment ? 'Edit Assessment' : 'Add Assessment' }}
+    </span>
+     <div style="width:227px; height:2px; background:#4880FF; margin:8px 0 20px;"></div>
+</div>
+
+    @if($assessment)
+    <div style="display:flex; align-items:center; gap:12px;">
+        
+        <span id="statusText"
+              style="font-weight:600; color:{{ $assessment->vendor_status === 'active' ? '#16A34A' : '#DC2626' }}">
+            {{ ucfirst($assessment->vendor_status) }}
+        </span>
+
+        <input type="hidden" name="vendor_status" value="inactive">
+
+        <input type="checkbox"
+               id="statusToggle"
+               name="vendor_status"
+               value="active"
+               {{ old('vendor_status', $assessment->vendor_status) === 'active' ? 'checked' : '' }}
+               style="width:42px; height:22px; cursor:pointer; accent-color:#4880FF;">
+    </div>
+@endif
+
+</div>
+
 
             {{-- COMPANY NAME --}}
             <div style="margin-bottom:22px;">
@@ -210,6 +236,25 @@ $(document).ready(function() {
         width: '100%',
         dropdownAutoWidth: true
     });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toggle = document.getElementById('statusToggle');
+    const text = document.getElementById('statusText');
+
+    if (toggle && text) {
+        toggle.addEventListener('change', function() {
+            if (this.checked) {
+                text.textContent = 'Active';
+                text.style.color = '#16A34A';
+            } else {
+                text.textContent = 'Inactive';
+                text.style.color = '#DC2626';
+            }
+        });
+    }
 });
 </script>
 

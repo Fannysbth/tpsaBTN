@@ -6,6 +6,7 @@ use App\Http\Controllers\QuestionnaireController;
 use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\QuestionnaireImportController;
+use App\Http\Controllers\ResultController;
 
 Route::get('/', [DashboardController::class, 'index'])->name('dashboard.index');
 
@@ -107,3 +108,8 @@ Route::get('/assessment/history/{id}/export-blank',
 Route::get('/assessment/history/{id}/export-result',
     [AssessmentController::class, 'exportResultHistory']
 )->name('assessment.export.result');
+
+Route::post('/assessment/{assessment}/manual-store', [App\Http\Controllers\AssessmentController::class, 'manualStore'])
+    ->name('assessment.manual.store');
+
+    Route::get('/result', [ResultController::class, 'index'])->name('result.index');

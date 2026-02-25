@@ -81,7 +81,7 @@ $allowedQuestions = $allowedQuestions->keyBy(function($q) {
 
 
 
-
+$skipFirstCategory = true;
             foreach ($rows as $index => $row) {
 
                 $row = $row->toArray();
@@ -108,9 +108,15 @@ $allowedQuestions = $allowedQuestions->keyBy(function($q) {
                 // =========================
                 // DETEKSI BARIS KATEGORI
                 // =========================
+                
                 if (!empty($row[0]) && str_starts_with(trim($row[0]), 'Kategori:')) {
 
-    $fullText = trim($row[0]);
+    // 🔥 SKIP kategori pertama
+    if ($skipFirstCategory) {
+        $skipFirstCategory = false;
+        continue;
+    }
+                $fullText = trim($row[0]);
 
     // Ambil nama kategori
     preg_match('/Kategori:\s*(.*?)\s*\(/', $fullText, $catMatch);
@@ -136,16 +142,25 @@ $allowedQuestions = $allowedQuestions->keyBy(function($q) {
 
     // 🔥 VALIDASI DENGAN ASSESSMENT
     $assessmentIndicator = strtoupper(
-        $this->assessment->category_scores[$category->id]['indicator'] ?? ''
-    );
+    trim($this->assessment->category_scores[$category->id]['indicator'] ?? '')
+);
 
-    if ($assessmentIndicator !== $indicatorFromExcel) {
-        throw ValidationException::withMessages([
-            'file' => [
-                "Assessment yang kamu upload tidak sesuai"
-            ]
-        ]);
-    }
+$indicatorFromExcel = strtoupper(trim($indicatorFromExcel));
+
+if ($assessmentIndicator !== $indicatorFromExcel) {
+
+    Log::error('INDICATOR MISMATCH', [
+        'category' => $categoryName,
+        'excel' => $indicatorFromExcel,
+        'database' => $assessmentIndicator,
+    ]);
+
+    throw ValidationException::withMessages([
+        'file' => [
+            "Indikator tidak sesuai pada kategori '{$categoryName}'. Excel: {$indicatorFromExcel}, Sistem: {$assessmentIndicator}"
+        ]
+    ]);
+}
 
     $currentCategoryId = $category->id;
 
@@ -156,6 +171,7 @@ $allowedQuestions = $allowedQuestions->keyBy(function($q) {
                 // STOP AREA TTD
                 // =========================
                 $firstCell = strtoupper(trim((string)($row[2] ?? '')));
+                
                 if (
                     str_starts_with($firstCell, 'SAYA YANG') ||
                     str_contains($firstCell, 'TTD') ||

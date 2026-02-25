@@ -26,7 +26,8 @@ class AssessmentController extends Controller
     $year    = $request->input('year');
     $company = $request->input('company');
 
-    $query = Assessment::orderBy('assessment_date', 'desc');
+    $query = Assessment::where('vendor_status', 'active')
+            ->orderBy('assessment_date', 'desc');
 
     if ($company) {
         // buang titik & spasi dari input
@@ -188,6 +189,29 @@ if ($category && strtolower($category->name) === 'umum') {
         foreach ($answersToCreate as $answerData) {
             $assessment->answers()->create($answerData);
         }
+        /*
+=========================================
+HISTORY CREATED
+=========================================
+*/
+
+$newSnapshot = [
+    'company_name'    => $assessment->company_name,
+    'assessment_date' => $assessment->assessment_date,
+    'vendor_status'   => $assessment->vendor_status ?? null,
+    'tier_criticality'=> $assessment->tier_criticality ?? null,
+    'total_score'     => $assessment->total_score,
+    'risk_level'      => $assessment->risk_level,
+    'category_scores' => $assessment->category_scores,
+    'answer_ids'      => $assessment->answers()->pluck('id')->toArray(),
+];
+
+AssessmentHistory::create([
+    'assessment_id' => $assessment->id,
+    'change_type'   => 'created',
+    'old_value'     => null,
+    'new_value'     => $newSnapshot,
+]);
 
         DB::commit();
 
@@ -233,7 +257,7 @@ public function update(Request $request, $id)
 
     $validated = $request->validate([
         'company_name' => 'required|string|max:255',
-        'vendor_status' => 'nullable|string',
+        'vendor_status' => 'required|in:active,inactive',
         'tier_criticality' => 'nullable|string',
         'category_level' => 'required|array',
         'category_level.*' => 'in:low,medium,high,umum'
@@ -293,7 +317,7 @@ public function update(Request $request, $id)
 
         $assessment->fill([
             'company_name' => $validated['company_name'],
-            'vendor_status' => $validated['vendor_status'] ?? $assessment->vendor_status,
+            'vendor_status' => $validated['vendor_status'],
             'tier_criticality' => $validated['tier_criticality'] ?? $assessment->tier_criticality,
             'category_scores' => $categoryScores,
             'evaluated_at' => now()
@@ -468,15 +492,103 @@ private function determineChangeType(array $old, array $new): string
         'historyScores'
     ));
 }
+public function manualStore(Request $request, Assessment $assessment)
+{
+    $request->validate([
+        'assessor' => 'required|string|max:255',
+        'scores'   => 'required|array',
+        'scores.*' => 'required|numeric|min:0|max:100',
+    ]);
 
+    DB::beginTransaction();
+
+    try {
+        // Snapshot sebelum perubahan (dengan answer_ids)
+        $oldSnapshot = [
+            'evaluated_at'     => $assessment->evaluated_at,
+            'assessor'         => $assessment->assessor,
+            'vendor_status'    => $assessment->vendor_status,
+            'tier_criticality' => $assessment->tier_criticality,
+            'total_score'      => $assessment->total_score,
+            'risk_level'       => $assessment->risk_level,
+            'category_scores'  => $assessment->category_scores,
+            'answer_ids'       => $assessment->answers()->pluck('id')->toArray() ?: null, // tambahkan
+        ];
+
+        // Update assessor dan nilai manual
+        $assessment->assessor = $request->assessor;
+        $assessment->evaluated_at = now();
+
+        // Update category_scores
+        $categoryScores = $assessment->category_scores ?? [];
+        foreach ($request->scores as $categoryId => $score) {
+            if (isset($categoryScores[$categoryId])) {
+                $categoryScores[$categoryId]['score'] = (float) $score;
+            } else {
+                $category = Category::find($categoryId);
+                if ($category) {
+                    $categoryScores[$categoryId] = [
+                        'indicator'     => null,
+                        'assessor'      => null,
+                        'justification' => null,
+                        'actual_score'  => 0,
+                        'max_score'     => 0,
+                        'score'         => (float) $score,
+                    ];
+                }
+            }
+        }
+        $assessment->category_scores = $categoryScores;
+
+        // Hitung ulang total score dan risk level
+        $scores = collect($categoryScores)->pluck('score')->filter();
+        $assessment->total_score = round($scores->avg(), 2);
+        $assessment->calculateRiskLevel();
+        $assessment->calculateTierCriticality();
+
+        $assessment->save();
+
+        // Snapshot setelah perubahan (answer_ids tetap sama)
+        $newSnapshot = [
+            'evaluated_at'     => $assessment->evaluated_at,
+            'assessor'         => $assessment->assessor,
+            'vendor_status'    => $assessment->vendor_status,
+            'tier_criticality' => $assessment->tier_criticality,
+            'total_score'      => $assessment->total_score,
+            'risk_level'       => $assessment->risk_level,
+            'category_scores'  => $assessment->category_scores,
+            'answer_ids'       => null
+        ];
+
+        // Simpan history dengan change_type 'result'
+        AssessmentHistory::create([
+            'assessment_id' => $assessment->id,
+            'change_type'   => 'result',
+            'old_value'     => $oldSnapshot,
+            'new_value'     => $newSnapshot,
+        ]);
+
+        DB::commit();
+
+        return redirect()
+            ->route('assessment.show', $assessment->id)
+            ->with('success', 'Nilai manual berhasil disimpan.');
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        Log::error('Manual store error: ' . $e->getMessage());
+        return back()
+            ->with('error', 'Gagal menyimpan nilai manual: ' . $e->getMessage())
+            ->withInput();
+    }
+}
 
 public function exportBlankHistory($id)
 {
     $history = AssessmentHistory::findOrFail($id);
 
     return Excel::download(
-        new AssessmentExport($history), // nanti export class baca dari snapshot
-        'assessment_blank_'.$history->id.'.xlsx'
+        new AssessmentExport($history, 'list'),
+        'assessment_'.$history->assessment->company_name.'.xlsx'
     );
 }
 
@@ -485,8 +597,8 @@ public function exportResultHistory($id)
     $history = AssessmentHistory::findOrFail($id);
 
     return Excel::download(
-        new AssessmentExport($history, true),
-        'assessment_result_'.$history->id.'.xlsx'
+        new AssessmentExport($history, 'result'),
+        'result_'.$history->assessment->company_name.'.xlsx'
     );
 }
 
@@ -537,7 +649,6 @@ public function exportResultHistory($id)
     */
 
     'answer_ids' => $assessment->answers()
-        ->where('is_active', true)
         ->pluck('id')
         ->toArray()
 ];
@@ -551,12 +662,16 @@ public function exportResultHistory($id)
 
         Excel::import(new AssessmentImport($assessment), $file);
 
-        $assessment->evaluated_at = now();
+$assessment->evaluated_at = now();
 
-        $assessment->calculateCategoryScores();
-        $assessment->calculateTierCriticality();
+if ($request->filled('assessor')) {
+    $assessment->assessor = $request->assessor;
+}
 
-        $assessment->save();
+$assessment->calculateCategoryScores();
+$assessment->calculateTierCriticality();
+
+$assessment->save();
 
         /*
         ----------------------------------
@@ -574,7 +689,6 @@ public function exportResultHistory($id)
     'category_scores' => $assessment->category_scores,
 
     'answer_ids' => $assessment->answers()
-        ->where('is_active', true)
         ->pluck('id')
         ->toArray()
 ];
@@ -596,8 +710,8 @@ public function exportResultHistory($id)
         DB::commit();
 
         return redirect()
-            ->route('assessment.index')
-            ->with('success', 'Data berhasil diimport.');
+    ->route('assessment.show', $assessment->id)
+    ->with('success', 'Data berhasil diimport.');
 
     } catch (\Throwable $e) {
 
@@ -606,7 +720,7 @@ public function exportResultHistory($id)
         Log::error('Assessment import error: ' . $e->getMessage());
 
         return redirect()
-            ->route('assessment.index')
+            ->route('assessment.show', $assessment->id)
             ->with('import_errors', ['Import gagal', $e->getMessage()]);
     }
 }

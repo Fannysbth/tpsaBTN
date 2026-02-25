@@ -29,5 +29,12 @@
             </a>
         </li>
 
+        <li class="{{ request()->is('result*') ? 'active' : '' }}">
+            <a href="{{ url('result') }}">
+                <i class="fa-solid fa-file-lines"></i>
+                <span>Result</span>
+            </a>
+        </li>
+
     </ul>
 </aside>

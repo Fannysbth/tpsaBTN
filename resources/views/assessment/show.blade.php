@@ -10,7 +10,117 @@
     <i class="fa-solid fa-shield-halved icon-header"></i>
 </x-header>
 
+
+
 <div style="background: #F5F6FA; padding: 20px;">
+
+    <!-- MODAL -->
+<div class="modal fade" id="assessmentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title">Input Assessment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+
+                {{-- FORM ASSESSOR --}}
+                <div class="mb-3">
+                    <label>Nama Assessor</label>
+                    <input type="text" id="assessor" class="form-control" required>
+                </div>
+
+                {{-- TAB --}}
+                <ul class="nav nav-tabs" id="assessmentTab" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active"
+                                data-bs-toggle="tab"
+                                data-bs-target="#uploadTab">
+                            Upload Excel
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link"
+                                data-bs-toggle="tab"
+                                data-bs-target="#manualTab">
+                            Isi Nilai Sendiri
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content mt-3">
+
+                    {{-- TAB 1 : UPLOAD --}}
+                    <div class="tab-pane fade show active" id="uploadTab">
+
+                        <form action="{{ route('assessment.import', $assessment->id) }}"
+                              method="POST"
+                              enctype="multipart/form-data">
+
+                            @csrf
+                            <input type="hidden" name="assessor" id="assessor_upload">
+
+                            <div class="mb-3">
+                                <input type="file"
+                                       name="excel_file"
+                                       accept=".xlsx,.xls"
+                                       class="form-control"
+                                       required>
+                            </div>
+
+                            <button type="submit" class="btn btn-success">
+                                Upload
+                            </button>
+                        </form>
+
+                    </div>
+
+                    {{-- TAB 2 : MANUAL INPUT --}}
+<div class="tab-pane fade" id="manualTab">
+    <form action="{{ route('assessment.manual.store', $assessment->id) }}" method="POST">
+        @csrf
+        <input type="hidden" name="assessor" id="assessor_manual">
+
+        @foreach($categories as $category)
+            @if($category->id != 0)   {{-- Hanya tampilkan kategori selain id 0 --}}
+                @php
+                    $currentScore = $assessment->category_scores[$category->id]['score'] ?? 0;
+                @endphp
+                <div class="mb-2">
+                    <label>{{ $category->name }}</label>
+                    <input type="number"
+                           name="scores[{{ $category->id }}]"
+                           class="form-control score-input"
+                           min="0"
+                           max="100"
+                           step="0.01"
+                           value="{{ old('scores.'.$category->id, $currentScore) }}"
+                           required>
+                </div>
+            @endif
+        @endforeach
+
+        <div class="mb-3">
+            <label>Total Score</label>
+            <input type="number"
+                   id="totalScore"
+                   class="form-control"
+                   readonly 
+                   value="{{ $assessment->total_score ?? 0 }}">
+        </div>
+
+        <button type="submit" class="btn btn-primary">Submit</button>
+    </form>
+</div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
     {{-- Modal untuk menampilkan error import --}}
 @if(session('import_errors'))
 <div class="modal fade" id="importErrorModal" tabindex="-1" aria-labelledby="importErrorModalLabel" aria-hidden="true">
@@ -80,37 +190,23 @@
         Back to List
     </a>
 
-    {{-- UPLOAD --}}
-    <form action="{{ route('assessment.import', $assessment->id) }}"
-          method="POST"
-          enctype="multipart/form-data"
-          style="margin:0;">
-
-        @csrf
-
-        <label class="btn btn-sm btn-warning"
-               style="
-                   height:40px;
-                   display:flex;
-                   align-items:center;
-                   justify-content:center;
-                   padding:0 22px;
-                   border-radius:6px;
-                   font-weight:bold;
-                   cursor:pointer;
-                   min-width:120px;
-               ">
-
-            Upload
-
-            <input type="file"
-                   name="excel_file"
-                   accept=".xlsx,.xls"
-                   style="display:none;"
-                   onchange="this.form.submit()">
-        </label>
-
-    </form>
+    {{-- BUTTON OPEN MODAL --}}
+<button type="button"
+        class="btn btn-sm btn-warning"
+        data-bs-toggle="modal"
+        data-bs-target="#assessmentModal"
+        style="
+            height:40px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            padding:0 22px;
+            border-radius:6px;
+            font-weight:bold;
+            min-width:120px;
+        ">
+    Upload
+</button>
 
     {{-- DELETE --}}
     <form action="{{ route('assessment.destroy', $assessment) }}"
@@ -321,13 +417,27 @@
                     </div>
 
                     {{-- SCORE --}}
-                    <div style="width:40px; text-align:right; font-weight:bold;">
+                    <div style="width:50px; text-align:right; font-weight:bold;">
                         {{ $categoryTotal }}%
                     </div>
 
                 </div>
 
             @endforeach
+            <div style="display:flex; padding:16px 12px; background:#F1F3F9; font-weight:bold; border-top:2px solid #ddd;">
+
+    <div style="flex:2;">
+        TOTAL SCORE
+    </div>
+
+    <div style="flex:3;"></div>
+    <div style="flex:3;"></div>
+
+    <div style="width:50px; text-align:right; font-size:16px;">
+        {{ $assessment->total_score ?? '-' }}%
+    </div>
+
+</div>
 
         </div>
     </div>
@@ -394,7 +504,7 @@
                 <div style="flex:2;">Date</div>
                 <div style="flex:1;">Status</div>
                 <div style="flex:1;">Tier</div>
-                <div style="width:80px; text-align:right;">Export</div>
+                <div style="width:80px; text-align:right;">Action</div>
             </div>
 
             @foreach($historyDetails as $history)
@@ -414,7 +524,8 @@
 
     <div style="width:80px; text-align:center;">
         <a href="{{ route('assessment.export.blank', $history->id) }}"
-           style="color:#4880FF; font-size:18px; text-decoration:none;">
+           style="color:#4880FF; font-size:18px; text-decoration:none;"
+           title="Export Excel untuk history ini">
             <i class="fa-solid fa-file-export"></i>
         </a>
     </div>
@@ -436,7 +547,7 @@
                 <div style="flex:2;">Assessor</div>
                 <div style="flex:1;">Score</div>
                 <div style="flex:1;">Risk</div>
-                <div style="width:80px; text-align:right;">Export</div>
+                <div style="width:80px; text-align:right;">Action</div>
             </div>
 
             @foreach($historyScores as $history)
@@ -459,10 +570,38 @@
     </div>
 
     <div style="width:80px;text-align:center;">
-        <a href="{{ route('assessment.export.result', $history->id) }}"
-   style="color:#4880FF; font-size:18px; text-decoration:none;">
-    <i class="fa-solid fa-file-export"></i>
-</a>
+        @php
+            // Cek apakah history ini memiliki answers (berasal dari import excel)
+            $hasAnswers = isset($history->new_value['answer_ids']) && count($history->new_value['answer_ids']) > 0;
+        @endphp
+
+        @if($hasAnswers)
+            {{-- Jika ada answers -> tampilkan tombol export (seperti semula) --}}
+            <a href="{{ route('assessment.export.result', $history->id) }}"
+               style="color:#4880FF; font-size:18px; text-decoration:none;"
+               title="Export hasil assessment">
+                <i class="fa-solid fa-file-export"></i>
+            </a>
+        @else
+
+       <form action="{{ route('assessment.import', $assessment->id) }}"
+      method="POST"
+      enctype="multipart/form-data"
+      style="margin:0;">
+
+    @csrf
+    <input type="hidden" name="assessor" value="{{ $history->new_value['assessor'] ?? '' }}">
+
+    <label style="color:#48ff57; font-size:18px; cursor:pointer;">
+        <i class="fa-solid fa-upload"></i>
+        <input type="file"
+               name="excel_file"
+               accept=".xlsx,.xls"
+               style="display:none;"
+               onchange="this.form.submit()">
+    </label>
+</form>
+        @endif
     </div>
 
 </div>
@@ -474,4 +613,56 @@
 </div>
 
 </div>
+
+<script>
+    // Copy assessor ke masing-masing form
+    document.getElementById('assessmentModal').addEventListener('input', function(e) {
+        if (e.target && e.target.id === 'assessor') {
+            let assessor = e.target.value;
+            document.getElementById('assessor_upload').value = assessor;
+            document.getElementById('assessor_manual').value = assessor;
+        }
+    });
+
+    // Hitung total score (rata-rata)
+    function updateTotalScore() {
+        let total = 0;
+        let count = 0;
+        document.querySelectorAll('.score-input').forEach(i => {
+            let val = parseFloat(i.value);
+            if (!isNaN(val)) {
+                total += val;
+                count++;
+            }
+        });
+        let avg = count > 0 ? (total / count) : 0;
+        document.getElementById('totalScore').value = avg.toFixed(2);
+    }
+
+    // Pasang event listener ke setiap input score
+    document.querySelectorAll('.score-input').forEach(input => {
+        input.addEventListener('input', updateTotalScore);
+    });
+
+    // Hitung awal jika sudah ada nilai
+    updateTotalScore();
+
+     var assessmentModal = document.getElementById('assessmentModal');
+    assessmentModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget; // Tombol yang memicu modal
+        if (button) {
+            var assessor = button.getAttribute('data-assessor');
+            var assessorInput = document.getElementById('assessor');
+            if (assessor) {
+                assessorInput.value = assessor;
+            } else {
+                // Jika dari tombol umum (header), kosongkan
+                assessorInput.value = '';
+            }
+            // Trigger event input agar hidden fields ikut terisi
+            assessorInput.dispatchEvent(new Event('input'));
+        }
+    });
+</script>
 @endsection
+
