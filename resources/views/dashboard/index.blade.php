@@ -15,18 +15,18 @@
             Export Dashboard to PPT
         </button>
 
-        <form method="GET" class="filter-bar">
-            <div class="filter-group">
-                <select name="year" onchange="this.form.submit()">
-                    <option value="all">Semua Tahun</option>
-                    @foreach(range(now()->year, now()->year - 5) as $y)
-                        <option value="{{ $y }}" {{ $selectedYear == $y ? 'selected' : '' }}>
-                            {{ $y }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-        </form>
+        <form method="GET" action="{{ route('dashboard.index') }}" class="filter-bar">
+    <div class="filter-group">
+        <select name="year" onchange="this.form.submit()">
+            <option value="all">Semua Tahun</option>
+            @foreach(range(now()->year, now()->year - 5) as $y)
+                <option value="{{ $y }}" {{ $selectedYear == $y ? 'selected' : '' }}>
+                    {{ $y }}
+                </option>
+            @endforeach
+        </select>
+    </div>
+</form>
     </div>
 
     {{-- LAYOUT UTAMA: 2 KOLOM --}}
@@ -59,11 +59,11 @@
         <div style="display:flex; flex-direction:row; gap:0;">
 
     <span style="font-size:32px; font-weight:700; line-height:1;">
-        {{ $totalAssessments }}
+        {{ $activeVendor }}
     </span>
 
     <span style="font-size:12px; color:#9e9e9e; align-self:flex-end">
-        ( {{ $inactiveVendorThisYear ?? 0 }} inactive )
+        ( {{ $inactiveVendor ?? 0 }} inactive )
     </span>
 
 </div>

@@ -114,22 +114,36 @@ class QuestionnaireController extends Controller
                UPDATE EXISTING
             ======================= */
             if (is_numeric($key)) {
+    $question = Question::find($key);
+    if (!$question) continue;
 
-                $question = Question::find($key);
-                if (!$question) continue;
+    $oldCategoryId = $question->category_id;
+    $newCategoryId = $data['category_id'];
 
-                $question->update([
-                    'category_id'     => $data['category_id'],
-                    'question_text'   => trim($data['question_text']),
-                    'question_type'   => $data['question_type'] ?? 'pilihan',
-                    'indicator'       => $data['indicator'] ?? null,
-                    'clue'            => $data['clue'] ?? null,
-                    'attachment_text' => $data['attachment_text'] ?? null,
-                    'has_attachment'  => !empty($data['attachment_text']),
-                    'sub'             => $data['sub'] ?? null,
-                ]);
+    $updateData = [
+        'category_id'     => $newCategoryId,
+        'question_text'   => trim($data['question_text']),
+        'question_type'   => $data['question_type'] ?? 'pilihan',
+        'indicator'       => $data['indicator'] ?? null,
+        'clue'            => $data['clue'] ?? null,
+        'attachment_text' => $data['attachment_text'] ?? null,
+        'has_attachment'  => !empty($data['attachment_text']),
+        'sub'             => $data['sub'] ?? null,
+    ];
 
-            } else {
+    // Jika pindah kategori, assign question_no baru
+    if ($oldCategoryId != $newCategoryId) {
+        $lastNumber = Question::where('category_id', $newCategoryId)
+            ->whereNotNull('question_no')
+            ->pluck('question_no')
+            ->map(fn ($no) => (int) $no)
+            ->max();
+        $newQuestionNo = $lastNumber ? $lastNumber + 1 : 1;
+        $updateData['question_no'] = $newQuestionNo;
+    }
+
+    $question->update($updateData);
+}else {
 
                 /* =======================
                    CREATE NEW QUESTION
@@ -189,12 +203,12 @@ class QuestionnaireController extends Controller
             ->with('success', 'All changes saved successfully');
 
     } catch (\Throwable $e) {
-
-        DB::rollBack();
-        Log::error($e);
-
-        return back()->with('error', 'Failed to save data');
-    }
+    DB::rollBack();
+    Log::error('UpdateAll failed: ' . $e->getMessage(), [
+        'trace' => $e->getTraceAsString()
+    ]);
+    return back()->with('error', 'Gagal menyimpan: ' . $e->getMessage());
+}
 }
 
 
@@ -249,9 +263,12 @@ class QuestionnaireController extends Controller
             ]);
 
         } catch (\Throwable $e) {
-            DB::rollBack();
-            throw $e;
-        }
+    DB::rollBack();
+    Log::error('UpdateAll failed: ' . $e->getMessage(), [
+        'trace' => $e->getTraceAsString()
+    ]);
+    return back()->with('error', 'Gagal menyimpan: ' . $e->getMessage());
+}
     }
 
     /* =======================

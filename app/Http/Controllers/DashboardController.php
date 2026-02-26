@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Question;
 use App\Models\Assessment;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpPresentation\PhpPresentation;
 use PhpOffice\PhpPresentation\IOFactory;
 use PhpOffice\PhpPresentation\DocumentLayout;
@@ -22,29 +23,50 @@ class DashboardController extends Controller
      */
     public function index(Request $request)
     {
-        // Filter hanya tahun (nilai 'all' berarti semua tahun)
-        $year = $request->filled('year') ? $request->year : 'all';
+        $year = $request->input('year', 'all');
+$latestYear = Assessment::max(DB::raw("date_part('year', assessment_date)")) ?? now()->year;
 
-        // Query assessment berdasarkan tahun (jika bukan 'all')
-        $query = Assessment::orderBy('assessment_date', 'desc')
-    ->where('vendor_status', 'active');
-        if ($year !== 'all') {
-            $query->whereYear('assessment_date', $year);
-        }
-        $assessments = $query->get();
-        $inactiveVendorThisYear = Assessment::where('vendor_status', 'inactive');
-
-if ($year !== 'all') {
-    $inactiveVendorThisYear->whereYear('assessment_date', $year);
+if ($year === 'all') {
+    $yearFilter = null; // artinya jangan filter tahun
+} else {
+    $yearFilter = $year;
 }
 
-$inactiveVendorThisYear = $inactiveVendorThisYear
-    ->distinct('company_name')
-    ->count('company_name');
+$baseQuery = Assessment::where('vendor_status', 'active')
+    ->orderBy('assessment_date','desc');
 
-    $inactiveVendorTotal = Assessment::where('vendor_status', 'inactive')
-    ->distinct('company_name')
-    ->count('company_name');
+if ($yearFilter) {
+    $baseQuery->whereYear('assessment_date', $yearFilter);
+}
+        $assessments = $baseQuery->get();
+// Vendor latest version per company (sesuai filter tahun)
+$latestAssessmentsQuery = Assessment::query();
+
+// Kalau pilih tahun selain all → filter tahun dulu
+if ($year !== 'all') {
+    $latestAssessmentsQuery->whereYear('assessment_date', $year);
+}
+
+// Ambil latest assessment per vendor (karena data overwrite)
+$latestVendorAssessments = $latestAssessmentsQuery
+    ->whereIn('id', function ($q) use ($year) {
+        $sub = DB::table('assessments')
+            ->select(DB::raw('MAX(id)'))
+            ->groupBy('company_name');
+
+        // Kalau tahun filter, subquery juga harus ikut filter
+        if ($year !== 'all') {
+            $sub->whereYear('assessment_date', $year);
+        }
+
+        $q->fromSub($sub, 'latest_ids');
+    })
+    ->get();
+
+// Count vendor
+$totalVendorCount = $latestVendorAssessments->count();
+$activeVendorCount = $latestVendorAssessments->where('vendor_status', 'active')->count();
+$inactiveVendorCount = $totalVendorCount - $activeVendorCount;
 
         // Ambil assessment TERAKHIR per vendor dalam periode terpilih
         $latestAssessments = $assessments
@@ -72,19 +94,52 @@ $inactiveVendorThisYear = $inactiveVendorThisYear
             }
         }
 
-        // ===================== PIE CHART (Assessed vs Not Assessed this year) =====================
-        // Semua vendor yang pernah muncul (tanpa filter tahun)
-        $allVendors = Assessment::distinct()
-    ->whereNotNull('company_name')
-    ->where('vendor_status', 'active')
-    ->pluck('company_name');
-        $assessedVendorsThisYear = $latestAssessments->pluck('company_name')->unique();
-        $notAssessedVendors = $allVendors->diff($assessedVendorsThisYear);
+        $currentYear = date('Y');
 
-        $pieComparison = [
-            'labels' => ['Sudah Dinilai', 'Belum Dinilai'],
-            'values' => [$assessedVendorsThisYear->count(), $notAssessedVendors->count()],
-        ];
+if ($year === 'all') {
+
+    // Universe = vendor aktif dengan assessment sampai tahun sekarang
+    $universeVendors = Assessment::where('vendor_status', 'active')
+        ->whereYear('assessment_date', '<=', $currentYear)
+        ->distinct()
+        ->pluck('company_name');
+
+    // Sudah dinilai = vendor yang latest assessment-nya ada di tahun sekarang
+    $assessedVendors = Assessment::where('vendor_status', 'active')
+        ->whereYear('assessment_date', $currentYear)
+        ->whereIn('id', function ($q) {
+            $q->select(DB::raw('MAX(id)'))
+                ->from('assessments')
+                ->groupBy('company_name');
+        })
+        ->pluck('company_name');
+
+} else {
+
+    $universeVendors = Assessment::where('vendor_status', 'active')
+        ->whereYear('assessment_date', '<=', $year)
+        ->distinct()
+        ->pluck('company_name');
+
+    $assessedVendors = Assessment::where('vendor_status', 'active')
+        ->whereYear('assessment_date', $year)
+        ->whereIn('id', function ($q) {
+            $q->select(DB::raw('MAX(id)'))
+                ->from('assessments')
+                ->groupBy('company_name');
+        })
+        ->pluck('company_name');
+}
+
+$notAssessedVendors = $universeVendors->diff($assessedVendors);
+
+$pieComparison = [
+    'labels' => ['Sudah Dinilai', 'Belum Dinilai'],
+    'values' => [
+        $assessedVendors->count(),
+        $notAssessedVendors->count()
+    ],
+];
 
         // ===================== BAR CHART (Jumlah Vendor per Tier) =====================
         // Bar chart vertikal: sumbu Y = jumlah vendor, sumbu X = Tier 1,2,3
@@ -130,8 +185,9 @@ $inactiveVendorThisYear = $inactiveVendorThisYear
                 'high'   => $this->scoreToGradientColor(95),
             ],
             'legendMax'              => $totalUniqueVendor,
-            'inactiveVendorThisYear' => $inactiveVendorThisYear,
-'inactiveVendorTotal' => $inactiveVendorTotal ?? 0,
+'totalVendor' => $totalVendorCount,
+'activeVendor' => $activeVendorCount,
+'inactiveVendor' => $inactiveVendorCount,
             // Data lama (jika masih dipakai di view) kita kirim dengan nilai dari latestAssessments
             'totalWithRiskLevel'     => $latestAssessments->whereNotNull('risk_level')->count(),
             'totalWithoutRiskLevel'  => $latestAssessments->whereNull('risk_level')->count(),
@@ -407,7 +463,7 @@ $slide->setBackground($background);
     $tr = $titleSh->createTextRun('Dashboard TPSA Security Questionnaire');
     $tr->getFont()->setBold(true)->setSize(14)->setColor(new Color($white));
 
-    $yearLabel = ($request->year === 'all') ? 'Semua Periode' : 'Periode Tahun ' . $request->year;
+    $yearLabel = ($request->year === 'all') ? 'Latest Version' : 'Periode Tahun ' . $request->year;
     $subSh = $slide->createRichTextShape();
     $subSh->setOffsetX(16)->setOffsetY(33)->setWidth(400)->setHeight(16);
     $subSh->getFill()->setFillType(Fill::FILL_NONE);
@@ -498,7 +554,7 @@ $layout = [
     // ─── Kolom 2 Row 1 ───
     'pie' => [
         'x' => 555.88188976,
-        'y' =>65.496062992,
+        'y' =>64.496062992,
       'w' => 357.02362205,
         'h' => 210.08661417
     ],
@@ -521,7 +577,7 @@ $layout = [
 
     'bar' => [
         'x' => 555.88188976,
-        'y' => 282.68503937,
+        'y' => 283.68503937,
         'w' => 377.02362205,
         'h' => 220.08661417
     ],
@@ -531,8 +587,7 @@ $layout = [
 //     RENDER CARDS
 //     ─────────────────────────────────────────────────────────────────
     foreach ($layout as $key => $pos) {
-        $transparent = $pos['transparent'] ?? false;
-
+        
  
 
         // Image overlay

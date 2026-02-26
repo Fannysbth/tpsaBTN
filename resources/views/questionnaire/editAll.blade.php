@@ -7,6 +7,12 @@
     <i class="fa-solid fa-building-columns icon-header"></i>
     <i class="fa-solid fa-shield-halved icon-header"></i>
 </x-header>
+@if(session('success'))
+    <div class="alert alert-success">{{ session('success') }}</div>
+@endif
+@if(session('error'))
+    <div class="alert alert-danger">{{ session('error') }}</div>
+@endif
 
 <form method="POST" action="{{ route('questionnaire.updateAll') }}" id="questionnaire-form">
     @csrf
@@ -330,11 +336,10 @@
 
 <script>
     function createOptionElement(questionId, index) {
-    const option = document.createElement('div')
-    option.className = 'option-item'
-    option.style = 'display:flex;gap:12px;align-items:center;'
-
-    option.innerHTML = `
+    const div = document.createElement('div');
+    div.className = 'option-item';
+    div.style = 'display:flex;gap:12px;align-items:center;';
+    div.innerHTML = `
         <input type="text"
                name="questions[${questionId}][options][${index}][text]"
                placeholder="Option text"
@@ -347,9 +352,8 @@
                 style="background:none;border:none;color:#FF4D4F;font-size:18px;">
             ×
         </button>
-    `
-
-    return option
+    `;
+    return div;
 }
 
 function scrollToQuestion(card) {
@@ -376,32 +380,30 @@ function addQuestionByClone() {
     const newQuestionId = 'new_' + Date.now();
     const newCard = lastCard.cloneNode(true);
 
-    // set dataset
+    // Set data-question-id pada card
     newCard.dataset.questionId = newQuestionId;
 
-    // update nomor
-    const numberEl = newCard.querySelector('.question-number');
-    if (numberEl) {
-        numberEl.textContent = container.querySelectorAll('.question-card').length + 1;
-    }
-
-    // reset title
-    const title = newCard.querySelector('.question-header div div div');
-    if (title) title.textContent = 'Untitled Question';
-
-    // reset semua input & textarea
-    newCard.querySelectorAll('textarea').forEach(el => el.value = '');
-    newCard.querySelectorAll('input').forEach(el => {
-        if (['checkbox','radio'].includes(el.type)) el.checked = false;
-        else el.value = '';
-    });
-
-    // update semua name attribute ke question baru
+    // Update semua atribut name
     newCard.querySelectorAll('[name]').forEach(el => {
         el.name = el.name.replace(/\[.*?\]/, `[${newQuestionId}]`);
     });
 
-    // reset options → buat 1 default option
+    // 🔥 UPDATE SEMUA ELEMEN YANG MEMILIKI data-question-id
+    newCard.querySelectorAll('[data-question-id]').forEach(el => {
+        el.dataset.questionId = newQuestionId;
+    });
+
+    // Reset nilai input/textarea
+    newCard.querySelectorAll('textarea').forEach(el => el.value = '');
+    newCard.querySelectorAll('input').forEach(el => {
+        if (el.type === 'checkbox' || el.type === 'radio') {
+            el.checked = false;
+        } else {
+            el.value = '';
+        }
+    });
+
+    // Reset opsi (buat satu opsi default)
     const optionsContainer = newCard.querySelector('.options-container');
     if (optionsContainer) {
         optionsContainer.innerHTML = '';
@@ -409,15 +411,17 @@ function addQuestionByClone() {
         optionsContainer.appendChild(firstOption);
     }
 
-    // reset state UI
+    // Inisialisasi cache untuk kartu baru (opsional, tapi direkomendasikan)
+    newCard._optionCache = optionsContainer ? optionsContainer.cloneNode(true) : '';
+    const clueInput = newCard.querySelector('input[name*="[clue]"]');
+    newCard._clueCache = clueInput ? clueInput.value : '';
+
+    // Tutup body jika terbuka, lalu buka
     newCard.classList.remove('active');
     const body = newCard.querySelector('.question-body');
     if (body) body.style.display = '';
 
-    // append
     container.appendChild(newCard);
-
-    // buka & scroll
     newCard.classList.add('active');
     scrollToQuestion(newCard);
 }

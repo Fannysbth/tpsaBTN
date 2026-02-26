@@ -36,28 +36,30 @@ class AssessmentReportExport implements
     }
 
     public function headings(): array
-    {
-        return [
-            'No',
-            'Company Name',
-            'Assessment Date',
-            'Risk Level',
-            'Score',
-        ];
-    }
+{
+    return [
+        'No',
+        'Company Name',
+        'Tier',
+        'Risk Level',
+        'Score',
+    ];
+}
 
     public function map($assessment): array
-    {
-        $this->no++;
+{
+    $this->no++;
 
-        return [
-            $this->no,
-            $assessment->company_name,
-            optional($assessment->assessment_date)->format('d/m/Y'),
-            $assessment->risk_level && $assessment->risk_level !== '-' ? strtoupper($assessment->risk_level) : 'Belum Dinilai' ,
-            $assessment->total_score ?? '-',
-        ];
-    }
+    return [
+        $this->no,
+        $assessment->company_name,
+        $assessment->tier_criticality ?? '-',
+        $assessment->risk_level && $assessment->risk_level !== '-'
+            ? strtoupper($assessment->risk_level)
+            : 'Belum Dinilai',
+        $assessment->total_score ?? '-',
+    ];
+}
 
     /**
      * Style HEADER

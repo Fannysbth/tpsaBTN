@@ -10,7 +10,7 @@
 <div style="display:flex; flex-wrap:wrap; gap:12px; margin:10px 40px">
     @foreach($categories as $category)
         <button type="button"
-        class="category-chip @if($selectedCategory?->id == $category->id) active @endif"
+        class="category-chip @if($selectedCategory && $selectedCategory->id == $category->id) active @endif"
         onclick="toggleCategory({{ $category->id }}, {{ $selectedCategory?->id ?? 'null' }})">
     <span class="category-name">{{ $category->name }}</span>
 </button>

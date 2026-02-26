@@ -120,7 +120,7 @@
     <textarea 
         name="category_justification[{{ $category->id }}]"
         placeholder="Masukkan justification..."
-        style="width:100%; border:1px solid #4880FF; border-radius:6px; padding:8px 12px; resize:vertical; min-height:60px;">
+        style="width:100%; border:1px solid #4880FF; border-radius:6px;  resize:vertical; min-height:60px;">
         {{ old("category_justification.{$category->id}", $selectedLevels[$category->id]['justification'] ?? '') }}
     </textarea>
 </div>

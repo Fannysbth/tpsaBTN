@@ -546,7 +546,6 @@
                 <div style="flex:2;">Date</div>
                 <div style="flex:2;">Assessor</div>
                 <div style="flex:1;">Score</div>
-                <div style="flex:1;">Risk</div>
                 <div style="width:80px; text-align:right;">Action</div>
             </div>
 
@@ -565,9 +564,6 @@
         {{ $history->new_value['total_score'] ?? 0 }}%
     </div>
 
-    <div style="flex:1;">
-        {{ strtoupper($history->new_value['risk_level'] ?? '-') }}
-    </div>
 
     <div style="width:80px;text-align:center;">
         @php

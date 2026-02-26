@@ -26,13 +26,11 @@ class AssessmentController extends Controller
     $year    = $request->input('year');
     $company = $request->input('company');
 
-    $query = Assessment::where('vendor_status', 'active')
-            ->orderBy('assessment_date', 'desc');
+    // Query dasar (tanpa filter status)
+    $query = Assessment::orderBy('assessment_date', 'desc');
 
     if ($company) {
-        // buang titik & spasi dari input
         $keyword = strtolower(preg_replace('/[^a-z0-9]/', '', $company));
-
         $query->whereRaw(
             "LOWER(REPLACE(REPLACE(company_name, '.', ''), ' ', '')) LIKE ?",
             ['%' . $keyword . '%']
@@ -47,19 +45,21 @@ class AssessmentController extends Controller
         $query->whereYear('assessment_date', $year);
     }
 
-    $assessments = $query->get();
-    if ($request->ajax()) {
-        return view('assessment._table', compact('assessments'))->render();
-    }
+    // Clone query untuk masing-masing status
+    $activeAssessments = clone $query;
+    $activeAssessments = $activeAssessments->where('vendor_status', 'active')->get();
 
-    session(['assessment_list_url' => request()->fullUrl()]);
+    $inactiveAssessments = clone $query;
+    $inactiveAssessments = $inactiveAssessments->where('vendor_status', 'inactive')->get();
 
+    // Data statistik (opsional)
     $totalCategories = Category::count();
     $totalQuestions  = Question::where('is_active', true)->count();
     $totalAssessments = Assessment::count();
 
     return view('assessment.index', compact(
-        'assessments',
+        'activeAssessments',
+        'inactiveAssessments',
         'month',
         'year',
         'totalCategories',
@@ -175,10 +175,13 @@ if ($category && strtolower($category->name) === 'umum') {
             $assessment = Assessment::create([
                 'company_name'    => $request->company_name,
                 'assessment_date' => now(),
+                'vendor_status'    => 'active',
                 'total_score'     => 0,
                 'risk_level'      => null,
                 'category_scores' => $categoryScores,
             ]);
+$assessment->calculateTierCriticality();
+$assessment->save();
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Assessment create failed: '.$e->getMessage());
@@ -208,7 +211,7 @@ $newSnapshot = [
 
 AssessmentHistory::create([
     'assessment_id' => $assessment->id,
-    'change_type'   => 'created',
+    'change_type'   => 'status',
     'old_value'     => null,
     'new_value'     => $newSnapshot,
 ]);
@@ -287,27 +290,31 @@ public function update(Request $request, $id)
         =========================================
         */
 
-        $categoryScores = [];
+        $categoryScores = $assessment->category_scores ?? [];
 
-        foreach ($validated['category_level'] as $categoryId => $level) {
+foreach ($validated['category_level'] as $categoryId => $level) {
 
-            $category = Category::find($categoryId);
+    $category = Category::find($categoryId);
 
-            if ($category && strtolower($category->name) === 'umum') {
-                $level = 'umum';
-            }
+    if ($category && strtolower($category->name) === 'umum') {
+        $level = 'umum';
+    }
 
-            $existing = $assessment->category_scores[$categoryId] ?? [];
+    $existing = $categoryScores[$categoryId] ?? [];
 
-            $categoryScores[$categoryId] = [
-                'indicator' => $level,
-                'assessor' => $existing['assessor'] ?? null,
-                'justification' => $justifications[$categoryId] ?? ($existing['justification'] ?? null),
-                'actual_score' => $existing['actual_score'] ?? 0,
-                'max_score' => $existing['max_score'] ?? 0,
-                'score' => $existing['score'] ?? 0,
-            ];
-        }
+    $categoryScores[$categoryId] = array_merge([
+        'indicator' => $level,
+        'assessor' => null,
+        'justification' => null,
+        'actual_score' => 0,
+        'max_score' => 0,
+        'score' => 0,
+    ], $existing);
+
+    if (isset($justifications[$categoryId])) {
+        $categoryScores[$categoryId]['justification'] = $justifications[$categoryId];
+    }
+}
 
         /*
         =========================================
@@ -345,20 +352,20 @@ public function update(Request $request, $id)
         =========================================
         */
 
-        $changeType = null;
+        $changeTypes = [];
 
 if (($oldSnapshot['vendor_status'] ?? null) !== ($newSnapshot['vendor_status'] ?? null)) {
-    $changeType = 'status';
+    $changeTypes[] = 'status';
 }
 
 if (($oldSnapshot['tier_criticality'] ?? null) !== ($newSnapshot['tier_criticality'] ?? null)) {
-    $changeType = 'tier';
+    $changeTypes[] = 'tier';
 }
 
-if ($changeType) {
+foreach ($changeTypes as $type) {
     AssessmentHistory::create([
         'assessment_id' => $assessment->id,
-        'change_type' => $changeType,
+        'change_type' => $type,
         'old_value' => $oldSnapshot,
         'new_value' => $newSnapshot
     ]);

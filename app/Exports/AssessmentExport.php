@@ -61,12 +61,43 @@ class AssessmentExport implements
             $snapshot = is_string($snapshotRaw) ? json_decode($snapshotRaw, true) : (is_array($snapshotRaw) ? $snapshotRaw : []);
 
             if ($mode === 'list') {
-                // Mode list: hanya gunakan category_scores, abaikan answers
-                $this->assessment = (object) [
-                    'category_scores' => $snapshot['category_scores'] ?? [],
-                    'risk_level'      => null,
-                ];
-            } else {
+    // Mode list: hanya gunakan category_scores, abaikan answers
+    $snapshotRaw = $history->old_value;
+    if (empty($snapshotRaw)) {
+        // fallback ke new_value jika old_value kosong
+        $snapshotRaw = $history->new_value;
+    }
+    $snapshot = is_string($snapshotRaw) ? json_decode($snapshotRaw, true) : (is_array($snapshotRaw) ? $snapshotRaw : []);
+
+    $categoryScores = $snapshot['category_scores'] ?? [];
+
+// Paksa key jadi integer
+$categoryScores = collect($categoryScores)
+    ->mapWithKeys(fn ($v, $k) => [(int) $k => $v]);
+
+// 🔥 Tambahkan category 0 kalau belum ada
+if (!$categoryScores->has(0)) {
+    $categoryScores->put(0, [
+        'score' => 0,
+        'indicator' => null,
+        'assessor' => null,
+        'justification' => null,
+        'actual_score' => 0,
+        'max_score' => 0,
+    ]);
+}
+
+// Sort berdasarkan ID
+$categoryScores = $categoryScores
+    ->sortKeys()
+    ->toArray();
+
+
+$this->assessment = (object) [
+    'category_scores' => $categoryScores,
+    'risk_level'      => null,
+];
+} else {
                 // Mode result: ambil answer_ids dan muat answers dari database
                 $answerIds = $snapshot['answer_ids'] ?? [];
                 $answers = collect();
@@ -75,12 +106,35 @@ class AssessmentExport implements
                         ->whereIn('id', $answerIds)
                         ->get();
                 }
+$categoryScores = $snapshot['category_scores'] ?? [];
 
-                $this->assessment = (object) [
-                    'answers'         => $answers,
-                    'category_scores' => $snapshot['category_scores'] ?? [],
-                    'risk_level'      => $snapshot['risk_level'] ?? null,
-                ];
+// Paksa key jadi integer
+$categoryScores = collect($categoryScores)
+    ->mapWithKeys(fn ($v, $k) => [(int) $k => $v]);
+
+// 🔥 Tambahkan category 0 kalau belum ada
+if (!$categoryScores->has(0)) {
+    $categoryScores->put(0, [
+        'score' => 0,
+        'indicator' => null,
+        'assessor' => null,
+        'justification' => null,
+        'actual_score' => 0,
+        'max_score' => 0,
+    ]);
+}
+
+// Sort berdasarkan ID
+$categoryScores = $categoryScores
+    ->sortKeys()
+    ->toArray();
+
+
+$this->assessment = (object) [
+    'answers'         => $answers,
+    'category_scores' => $categoryScores,
+    'risk_level'      => $snapshot['risk_level'] ?? null,
+];
             }
         } else {
             // $history adalah model Assessment
@@ -146,7 +200,7 @@ class AssessmentExport implements
             $grouped->put($categoryId, $dummyAnswers);
         }
     }
-    $grouped = $grouped->sortKeys();
+    
 } else {
             // Mode list: bangun dummy answers berdasarkan category_scores
             $grouped = collect();
@@ -193,14 +247,16 @@ class AssessmentExport implements
 
         $totalCategoryScoreSum = 0;
         $categoryCount = 0;
+foreach ($this->assessment->category_scores as $categoryId => $catData) {
 
-        foreach ($grouped as $categoryId => $answers) {
-            if ($answers->isEmpty()) {
-                continue;
-            }
+    $answers = $grouped->get($categoryId, collect());
+
+    if ($answers->isEmpty() && $categoryId != 0) {
+        continue;
+    }
 
             $category = $answers->first()->question->category;
-            $indicator = $this->assessment->category_scores[$categoryId]['indicator'] ?? "umum";
+           $indicator = $catData['indicator'] ?? 'umum';
 
             // Hitung skor kategori dari answers
             $totalScore = 0;
@@ -306,12 +362,13 @@ $this->categoryQuestionRange[$categoryId] = [
                 $sheet      = $event->sheet->getDelegate();
                 $lastRow    = $sheet->getHighestRow();
                 $lastMatrix = $this->lastMatrixColumnLetter();
+                
 
                 // Merge dan style baris kategori
                 foreach ($this->categoryRowMap as $row) {
                     
                     $sheet->mergeCells("A{$row}:F{$row}");
-                    $sheet->getStyle("A{$row}:G{$row}")->applyFromArray([
+                    $sheet->getStyle("A{$row}:{$lastMatrix}{$row}")->applyFromArray([
                         'font'    => ['bold' => true],
                         'fill'    => [
                             'fillType'   => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,

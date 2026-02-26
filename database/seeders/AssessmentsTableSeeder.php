@@ -14,6 +14,9 @@ class AssessmentsTableSeeder extends Seeder
 
         $now = Carbon::now();
 
+        // ===============================
+        // Data random tahun sekarang (15 data)
+        // ===============================
         for ($i = 1; $i <= 15; $i++) {
 
             $score = rand(30, 95);
@@ -42,6 +45,42 @@ class AssessmentsTableSeeder extends Seeder
                 'updated_at'       => $now,
             ]);
         }
+
+        // ===============================
+        // 5 Vendor data tahun 2025
+        // ===============================
+        $vendors2025 = [
+            'PT. Alpha Teknologi',
+            'CV. Beta Nusantara',
+            'PT. Gamma Solusi',
+            'PT. Delta Energi',
+            'PT. Epsilon Karya'
+        ];
+
+        foreach ($vendors2025 as $index => $vendor) {
+
+            $score = rand(40, 95);
+
+            DB::table('assessments')->insert([
+                'company_name'     => $vendor,
+                'assessor'         => 'Seeder System',
+
+                'assessment_date'  => Carbon::create(2025, rand(1,12), rand(1,28)),
+                'evaluated_at'     => Carbon::create(2025, rand(1,12), rand(1,28)),
+
+                'total_score'      => $score,
+                'risk_level'       => $this->determineRisk($score),
+                'tier_criticality' => $this->determineTier(),
+                'vendor_status'    => 'active',
+
+                'category_scores'  => json_encode($this->generateCategoryScores()),
+
+                'notes'       => 'Seed data 2025',
+                'created_at'  => $now,
+                'updated_at'  => $now,
+            ]);
+            };
+        
     }
 
     private function determineRisk($score): string

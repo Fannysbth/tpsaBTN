@@ -314,7 +314,7 @@ $categoryScores[$category->id] = [
     // === TOTAL SCORE = RATA-RATA CATEGORY ===
     $totalCategories = count($categoryScores);
     $this->total_score = $totalCategories > 0
-        ? round(array_sum(array_column($categoryScores, 'score')) / ($totalCategories-1), 2)
+        ? round(array_sum(array_column($categoryScores, 'score')) / ($totalCategories), 2)
         : 0;
 
     // === RISK LEVEL ===
