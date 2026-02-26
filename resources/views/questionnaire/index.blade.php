@@ -4,177 +4,464 @@
 
 {{-- HEADER COMPONENT --}}
 <x-header title="Questionnaire">
+    {{-- ERROR PREVIEW IMPORT --}}
+@if ($errors->any())
+    <div class="alert alert-danger" style="margin:20px">
+        <ul style="margin:0">
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+
+    {{-- buka modal lagi kalau error --}}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const modal = new bootstrap.Modal(
+                document.getElementById('importModal')
+            );
+            modal.show();
+        });
+    </script>
+@endif
+
     <i class="fa-solid fa-building-columns icon-header"></i>
     <i class="fa-solid fa-shield-halved icon-header"></i>
 </x-header>
 
+
+
+<div  class="questionnaire-page">
+    @if(session('error'))
+    <!-- Modal -->
+    <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-danger">
+          <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title" id="errorModalLabel">Error</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            {!! session('error') !!}
+          </div>
+          <div class="modal-footer">
+            <a href="{{ route('questionnaire.export') }}" class="btn btn-success">
+        <i class="fas fa-file-excel" style="margin-right: 8px;"></i>Export to Excel
+    </a>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Script untuk otomatis show modal -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+            errorModal.show();
+        });
+    </script>
+@endif
+
+
+    {{-- TOOLBAR --}}
+
+    <div class="filter-edit-wrapper">
+        <div class="filter-box">
 @php
     $visibleCategories = $categories->take(3);
     $moreCategories = $categories->slice(3);
 @endphp
 
-<div class="questionnaire-wrapper">
-
-    <div class="filter-edit-wrapper">
-        <div class="filter-container">
-
             {{-- ALL --}}
-            <div class="filter-item fixed active">
-                <span class="filter-text">All</span>
-                <div class="divider"></div>
-            </div>
+            <span class="filter-item active" data-category-id="">All</span>
 
             {{-- 3 KATEGORI PERTAMA --}}
             @foreach ($visibleCategories as $category)
-                <div class="filter-item" data-category-id="{{ $category->id }}">
-                    <span class="filter-text truncate">
+                <span class="filter-item" 
+                     data-category-id="{{ $category->id }}">
                         {{ $category->name }}
-                    </span>
-                    <div class="divider"></div>
-                </div>
+                </span>
             @endforeach
 
             {{-- MORE --}}
             @if ($moreCategories->count())
-                <div class="dropdown filter-more">
-                    <button class="dropdown-toggle btn btn-link p-0 text-decoration-none"
-                            type="button"
-                            data-bs-toggle="dropdown">
-                        More...
-                    </button>
+<div class="dropdown" style="padding:5px;">
+    <span
+        class="dropdown-toggle filter-item"
+        data-bs-toggle="dropdown"
+        id="moreFilter"
+        style="align-items: stretch; height: 100%;"
+    >
+        <span id="moreFilterText">More</span>
+    </span>
 
-                    <ul class="dropdown-menu dropdown-menu-end mt-2">
-                        @foreach ($moreCategories as $category)
-                            <li>
-                                <a class="dropdown-item"
-                                   href="#"
-                                   data-category-id="{{ $category->id }}">
-                                    {{ $category->name }}
-                                </a>
-                            </li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
-
+    <div class="dropdown-menu">
+        @foreach ($moreCategories as $category)
+            <a
+                href="#"
+                class="dropdown-item filter-item"
+                data-category-id="{{ $category->id }}">
+                {{ $category->name }}
+            </a>
+        @endforeach
+    </div>
+</div>
+@endif
         </div>
 
-        <a href="{{ route('questionnaire.editAll') }}"    class="btn-edit">
-    <i class="fas fa-edit"></i>
-    Edit
-</a>
+        {{-- INDICATOR FILTER --}}
+<div class="dropdown"  style="display:flex; padding:10px;background:#FFFFFF; border-radius: 10px;
+    border: 1px solid transparent; align-items:center; width:120px; justify-content:center">
+    <span
+        class="dropdown-toggle filter-item"
+        data-bs-toggle="dropdown"
+        id="indicatorFilter"
+    >
+        <span id="indicatorFilterText">Indicator</span>
+    </span>
+
+    <div class="dropdown-menu">
+        <a href="#" class="dropdown-item indicator-item" data-indicator="">
+            All Indicator
+        </a>
+        <a href="#" class="dropdown-item indicator-item" data-indicator="umum">
+            Umum
+        </a>
+        <a href="#" class="dropdown-item indicator-item" data-indicator="high">
+            High
+        </a>
+        <a href="#" class="dropdown-item indicator-item" data-indicator="medium">
+            Medium
+        </a>
+        <a href="#" class="dropdown-item indicator-item" data-indicator="low">
+            Low
+        </a>
+    </div>
+</div>
+
+     <div class="dropdown add-wrapper">
+        <button type="button"
+                class="btn btn-primary"
+                data-bs-toggle="dropdown">
+            <i class="fas fa-plus me-1"></i> Edit
+        </button>
+
+        <ul class="dropdown-menu">
+            <li>
+                <a class="dropdown-item" href="{{ route('categories.create') }}">
+                    Category
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="{{ route('questionnaire.editAll') }}">
+                    Question
+                </a>
+            </li>
+        </ul>
+    </div>
 
 
     </div>
 
     {{-- QUESTION TABLE --}}
-    <div class="question-card">
+    <div class="question-card" style="margin-top: 10px; margin-left:10px;">
 
         {{-- HEADER --}}
         <div class="question-header">
-            <div>No</div>
+            <div >No</div>
             <div>Category</div>
-            <div >Question</div>
-            <div>Type Answer</div>
-            <div style="text-align: center;">Attachment</div>
-            <div style="text-align: center;">Aksi</div>
+            <div style="text-align:center;">Indicator</div>
+            <div style= "text-align: center;">Question</div>
+            <div style= "text-align: center;">Type Answer</div>
+            <div style= "text-align: center;">Aksi</div>
         </div>
+        
+@php $no = 1; @endphp
 
-        {{-- DATA --}}
+        {{-- DATA --}} 
         @foreach($categories as $category)
-            @foreach($category->questions as $question)
-                <div class="question-row"
-                     data-category-id="{{ $category->id }}">
+    @foreach($category->questions as $question)
+    @php
+    $indicatorArray = is_array($question->indicator)
+        ? $question->indicator
+        : json_decode($question->indicator ?? '[]', true);
+@endphp
+        <div class="question-row" 
+             data-category-id="{{ $category->id }}"
+             data-indicator="{{ implode(',', $indicatorArray) }}">
 
-                    <div>{{ $question->order }}</div>
-                    <div>{{ $category->name }}</div>
-                    <div>{{ $question->question_text }}</div>
+            <div>{{ $question->question_no ?? '-' }}</div>
+            <div>{{ $category->name }}</div>
 
-                    <div>
-                        <button class="type-btn">
-                            {{ ucfirst($question->question_type) }}
-                        </button>
-                    </div>
+            <div style="text-align:center;">
+    @php
+        $indicators = $indicatorArray;
+        $colors = [
+            'umum' => '#34495E',    // abu-abu gelap
+            'high' => '#E74C3C',    // merah
+            'medium' => '#F1C40F',  // kuning
+            'low' => '#2ECC71',     // hijau
+        ];
+    @endphp
 
-                    <div class="attachment-text">
-                        {{ $question->has_attachment ? 'Mohon lampirkan dokumen pendukung' : '-' }}
-                    </div>
-
-                    <div class="action-btns " style="margin-left: 50px;">
-                        
-
-                        <button class="btn btn-sm btn-danger delete-question"
-                                data-id="{{ $question->id }}">
-                            <i class="fas fa-trash" ></i>
-                        </button>
-                    </div>
-                </div>
-            @endforeach
+    @if($indicators)
+        @foreach($indicators as $index => $indicator)
+            <span style="color: {{ $colors[$indicator] ?? '#000' }}; font-weight:600;">
+                {{ strtoupper($indicator) }}
+            </span>@if(!$loop->last), @endif
         @endforeach
-
-    </div>
+    @else
+        -
+    @endif
 </div>
 
-@include('questionnaire.modals.category')
-@include('questionnaire.modals.question')
+
+            <div style="margin:0 20px">{{ $question->question_text }}</div>
+
+            <div style="text-align:center; margin:0 5px;">
+            @if($question->question_type === 'pilihan')
+                <select style="padding:6px 8px;border-radius:6px;margin:0 5px;border:1px solid #4880FF;width:130px;
+                              overflow:hidden;text-overflow:ellipsis;white-space:nowrap; ">
+                <option value="">-- Pilihan --</option>
+                @foreach($question->options as $opt)
+                    <option>{{ $opt->option_text }}</option>
+                @endforeach
+                </select>
+            @else
+                <span style="color:#000; justify-content:center; display:flex;">
+                {{ $question->clue ?? '-' }}
+                </span>
+            @endif
+            </div>
+
+            <form
+    action="{{ route('questionnaire.questions.destroy', $question) }}"
+    method="POST"
+    onsubmit="return confirm('Yakin ingin menghapus question ini?');"
+    style="margin:0; text-align:center;"
+>
+    @csrf
+    @method('DELETE')
+
+    <button
+        type="submit"
+        class="btn btn-sm btn-danger"
+        
+        
+    >
+        <i class="fas fa-trash" ></i>
+    </button>
+</form>
+
+        </div>
+    @endforeach
+@endforeach
+ </div>
+ {{-- TOMBOL EXPORT & IMPORT --}}
+<div style="margin: 30px 0 20px 20px; display: flex; gap: 12px;">
+    <a href="{{ route('questionnaire.export') }}" class="btn btn-success" 
+       style="padding: 10px 24px; border-radius: 8px; font-weight: 500;">
+        <i class="fas fa-file-excel" style="margin-right: 8px;"></i>Export to Excel
+    </a>
+    
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#importModal"
+            style="padding: 10px 24px; border-radius: 8px; font-weight: 500;">
+        <i class="fas fa-file-import" style="margin-right: 8px;"></i>Import from Excel
+    </button>
+</div>
+
+{{-- MODAL IMPORT --}}
+<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importModalLabel">Import Questionnaire</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ route('questionnaire.import.preview') }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Pilih File Excel</label>
+                        <input type="file" class="form-control" name="file" id="file" accept=".xlsx,.xls" required>
+                        <div class="form-text">
+                            Format file harus sesuai dengan template export. Hanya pertanyaan baru yang akan ditambahkan.
+                        </div>
+                    </div>
+                    
+                    <div style="background: #F0F7FF; padding: 12px; border-radius: 6px; margin-top: 16px;">
+                        <h6 style="font-size: 13px; color: #4880FF; margin-bottom: 8px;">
+                            <i class="fas fa-info-circle" style="margin-right: 6px;"></i>Catatan Import:
+                        </h6>
+                        <ul style="font-size: 12px; color: #595959; margin: 0; padding-left: 16px;">
+                            <li>Hanya dapat menambahkan pertanyaan ke kategori yang sudah ada</li>
+                            <li>Tidak dapat membuat kategori baru melalui import</li>
+                            <li>Format harus sesuai dengan template export</li>
+                            <li>Data akan divalidasi terlebih dahulu sebelum diimport</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-eye" style="margin-right: 6px;"></i>Preview Import
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</div>
+
+
 
 {{-- ================= FILTER SCRIPT ================= --}}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    const allBtn = document.querySelector('.filter-item.fixed');
-    const filterItems = document.querySelectorAll('.filter-item[data-category-id]');
-    const dropdownItems = document.querySelectorAll('.dropdown-item');
+    let activeCategory = null;
+    let activeIndicator = null;
+
     const rows = document.querySelectorAll('.question-row');
 
-    function resetActive() {
-        document.querySelectorAll('.filter-item').forEach(el => {
-            el.classList.remove('active');
+    function applyFilter() {
+        rows.forEach(row => {
+            const rowCategory = row.dataset.categoryId;
+            const rowIndicators = (row.dataset.indicator || '').split(',');
+
+            const matchCategory =
+                !activeCategory || rowCategory === activeCategory;
+
+            const matchIndicator =
+                !activeIndicator || rowIndicators.includes(activeIndicator);
+
+            row.style.display =
+                matchCategory && matchIndicator ? 'grid' : 'none';
         });
     }
 
-    function showAll() {
-        rows.forEach(row => row.style.display = 'grid');
-    }
+    /* ================= CATEGORY FILTER ================= */
 
-    // ALL
-    allBtn.addEventListener('click', function () {
-        resetActive();
-        this.classList.add('active');
-        showAll();
-    });
+    document
+        .querySelectorAll('.filter-item[data-category-id]')
+        .forEach(item => {
+            item.addEventListener('click', function (e) {
+                e.preventDefault();
 
-    // FILTER BUTTON
-    filterItems.forEach(item => {
-        item.addEventListener('click', function () {
-            const id = this.dataset.categoryId;
-            resetActive();
-            this.classList.add('active');
+                activeCategory = this.dataset.categoryId || null;
 
-            rows.forEach(row => {
-                row.style.display =
-                    row.dataset.categoryId === id ? 'grid' : 'none';
+                // active state category aja
+                document
+                    .querySelectorAll('.filter-item[data-category-id]')
+                    .forEach(i => i.classList.remove('active'));
+
+                this.classList.add('active');
+
+                // reset text more kalau klik All / kategori utama
+                if (!this.closest('.dropdown-menu')) {
+                    const moreText = document.getElementById('moreFilterText');
+                    if (moreText) moreText.textContent = 'More';
+                }
+
+                applyFilter();
             });
         });
-    });
 
-    // FILTER DROPDOWN
-    dropdownItems.forEach(item => {
-        item.addEventListener('click', function (e) {
-            e.preventDefault();
-            const id = this.dataset.categoryId;
-            resetActive();
+    /* ================= MORE DROPDOWN ================= */
 
-            rows.forEach(row => {
-                row.style.display =
-                    row.dataset.categoryId === id ? 'grid' : 'none';
+    document
+        .querySelectorAll('.dropdown-menu .filter-item')
+        .forEach(item => {
+            item.addEventListener('click', function (e) {
+                e.preventDefault();
+
+                activeCategory = this.dataset.categoryId;
+
+                document
+                    .querySelectorAll('.filter-item[data-category-id]')
+                    .forEach(i => i.classList.remove('active'));
+
+                this.classList.add('active');
+
+                document.getElementById('moreFilterText').textContent =
+                    this.textContent.trim();
+
+                applyFilter();
             });
         });
-    });
+
+    /* ================= INDICATOR FILTER ================= */
+
+    document
+        .querySelectorAll('.indicator-item')
+        .forEach(item => {
+            item.addEventListener('click', function (e) {
+                e.preventDefault();
+
+                activeIndicator = this.dataset.indicator || null;
+
+                document
+                    .querySelectorAll('.indicator-item')
+                    .forEach(i => i.classList.remove('active'));
+
+                this.classList.add('active');
+
+                document.getElementById('indicatorFilterText').textContent =
+                    this.textContent.trim() === 'All Indicator'
+                        ? 'Indicator'
+                        : this.textContent.trim();
+
+                applyFilter();
+            });
+        });
 
 });
 </script>
 
 
+
+<style>
+.questions-container {
+    height: calc(100vh - 260px);
+    width: 100%;
+    overflow-y: auto;
+    padding: 0 24px;   /* jarak kiri kanan */
+    box-sizing: border-box;
+}
+
+.btn-success {
+    background: #52C41A;
+    border: 1px solid #52C41A;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #389E0D;
+    border-color: #389E0D;
+}
+
+.btn-primary {
+    background: #4880FF;
+    border: 1px solid #4880FF;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #2F6DFF;
+    border-color: #2F6DFF;
+}
+
+.btn-secondary {
+    background: #8C8C8C;
+    border: 1px solid #8C8C8C;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #737373;
+    border-color: #737373;
+}
+</style>
 
 @endsection

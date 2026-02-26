@@ -3,6 +3,15 @@
 	align-self: stretch;
 }
 
+.sidebar-divider {
+    width: 100%;
+    height: 3px;
+    background-color: #3b82f6; /* biru */
+    margin-top: 12px;
+    border-radius: 2px;
+}
+
+
 .button {
 	flex-shrink: 0;
 	display: flex;
@@ -50,13 +59,58 @@
 	gap: 15px;
 	text-align: left;
 }
+
+.app-header {
+    position: fixed;                 /* 🔥 bukan sticky */
+    top: 0;
+    left: 240px;                     /* 🔥 mulai setelah sidebar */
+    width: calc(100% - 240px);       /* 🔥 sisa layar */
+    height: 80px;                    /* samakan dengan asumsi */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #ffffff;
+    padding: 0 32px;
+    border-bottom: 1px solid #E5E7EB;
+    z-index: 1000;
+}
+
+
+.header-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #202224;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.header-brand {
+    font-weight: 700;
+    font-size: 14px;
+    color: #202224;
+}
+
+.header-brand.btn {
+    color: #1E88E5;
+}
 .sidebar {
+    position: fixed;
+    top: 0;                  /* 🔥 full dari atas */
+    left: 0;
     width: 240px;
-    min-height: 100vh;
+    height: 100vh;           /* 🔥 full tinggi layar */
     background: #ffffff;
     border-right: 1px solid #E5E7EB;
     padding: 24px 16px;
+    overflow-y: auto;        /* scroll sidebar */
+    z-index: 900;
 }
+
+
 
 .sidebar-header {
     text-align: center;
@@ -67,17 +121,21 @@
     color: #4880FF;
     font-weight: 700;
     font-size: 20px;
-    line-height: 1.4;
+    line-height: 1.1;
 }
 .app-layout {
     display: flex;
 }
 
 .main-content {
-    flex: 1;
+    margin-left: 220px;      /* offset sidebar */
+    margin-top: 50px;  
+    width: calc(100% - 220px); /* adjust width to account for sidebar */
+    padding: 24px;
     background: #F5F6FA;
-    min-height: 100vh;
+    min-height: calc(100vh - 80px);
 }
+
 
 .sidebar-title small {
     color: #202224;
@@ -148,40 +206,10 @@
     margin-bottom: 24px;
 }
 .assessment-page {
-    padding: 24px 32px;
-    background: #F5F6FA;
-    min-height: 100vh;
-}
-.app-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #ffffff;
-    padding: 20px 32px;
-    border-bottom: 1px solid #E5E7EB;
+    padding: 10px 20px;
+    overflow-x: hidden;
 }
 
-.header-title {
-    font-size: 24px;
-    font-weight: 700;
-    color: #202224;
-}
-
-.header-right {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-
-.header-brand {
-    font-weight: 700;
-    font-size: 14px;
-    color: #202224;
-}
-
-.header-brand.btn {
-    color: #1E88E5;
-}
 
 
 .column {
@@ -281,6 +309,22 @@
 	padding: 30px 16px;
 	box-shadow: 6px 6px 54px #0000000D;
 }
+.select2-container--default .select2-selection--single {
+    height: auto !important;
+    min-height: 50px;
+    padding: 6px 10px;
+}
+
+.select2-selection__rendered {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    line-height: 1.4 !important;
+}
+
+.select2-results__option {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+}
 .row-view5 {
 	align-self: stretch;
 	display: flex;
@@ -290,6 +334,59 @@
 	margin-left: 31px;
 	margin-right: 31px;
 }
+
+.category-level {
+    white-space: normal !important;
+    word-wrap: break-word;
+    height: auto;
+    min-height: 50px;
+    line-height: 1.3;
+}
+
+.category-level option {
+    white-space: normal;
+}
+
+.category-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: #F0F7FF;
+    border: 1px solid #4880FF;
+    border-radius: 999px; /* pill */
+    font-size: 14px;
+    font-weight: 500;
+    color: #202224;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.category-chip:hover {
+    background: #E8F0FF;
+}
+
+.category-name {
+    white-space: nowrap;
+}
+
+.delete-category-btn {
+    width: 18px;
+    height: 18px;
+    border: none;
+    background: transparent;
+    color: #FF4D4F;
+    font-size: 25px;
+    line-height: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+
+
 .row-view6 {
 	align-self: stretch;
 	display: flex;
@@ -306,7 +403,7 @@
 .row-view7 {
 	align-self: stretch;
 	display: flex;
-	align-items: center;
+	align-items: center; 
 	margin-bottom: 24px;
 	margin-left: 55px;
 	margin-right: 86px;
@@ -352,7 +449,6 @@
     max-width: 1200px;
     background: #F5F6FA;
     margin-left: 1px;
-    padding: 20px;
 }
 
 /* Header */
@@ -373,29 +469,54 @@
 
 .filter-edit-wrapper {
     display: flex;
-    align-items: center;
-    gap: 18px;
-    margin: 0 31px 24px;
+    justify-content:space-between;
+    align-items: stretch; /* ini kuncinya */
+    max-width: 100%;
+    gap:10px;
+    margin: 10px;
+    padding: 5px 0;
+
 }
 
-.filter-container {
-    flex: 1;
+.filter-box {
     display: flex;
-    align-items: center;
-    background: #F8F9FA;
-    border: 1px solid #D4D4D4;
-    border-radius: 10px;
-    padding: 0 10px;
+    flex-wrap: wrap;
+    width: 85%;
+    justify-content:space-between;
+    background: #ffffff;
+    padding: 10px;
+    border-radius: 12px;
+}
+
+
+.add-wrapper {
+    display: flex;
     overflow: visible;
 }
 
-.filter-item {
-    display: flex;
-    align-items: center;
-	padding-left: 50px;
-    gap: 50px;
-    white-space: nowrap;
+.add-wrapper .btn {
+    width: 100px; /* samain sama filter */
+    border-radius: 12px;
+    font-size: 14px;
 }
+
+.filter-item {
+    padding: 6px 6px;
+    font-size: 14px;
+    cursor: pointer;
+    color: #555;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.filter-item:hover,
+.filter-item.active {
+    color: #4379EE;
+    background: rgba(67,121,238,0.1);
+    border-color: #4379EE;
+}
+
 
 .filter-text {
     font-size: 14px;
@@ -405,20 +526,15 @@
 }
 
 .filter-text.truncate {
-    max-width: 80px;
+    max-width: 150px;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.divider {
-    width: 1px;
-    height: 40px;
-    background: #D4D4D4;
-}
 
 .filter-more {
     flex-shrink: 0;
-	padding-left: 30px;
+    margin-right: 10px;
 }
 .dropdown-menu.show {
     display: block;
@@ -438,6 +554,20 @@
     padding: 6px 0;
 }
 
+.btn-editt {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #4379EE;
+    border: none;
+    border-radius: 6px;
+    padding: 1px 10px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+}
+
 .btn-edit {
     flex-shrink: 0;
     display: flex;
@@ -446,20 +576,159 @@
     background: #4379EE;
     border: none;
     border-radius: 6px;
-    padding: 7px 29px;
+    padding: 8px 20px;
+    margin-bottom: 5px;
     color: #fff;
     font-size: 15px;
     font-weight: 700;
 }
 
+.option-text-input:focus,
+.option-score-input:focus,
+.answer-input:focus,
+select:focus {
+    outline: none;
+    border-color: #4880FF !important;
+    box-shadow: 0 0 0 2px rgba(72, 128, 255, 0.1);
+}
 
+/* Scrollbar styling */
+.question-textarea::-webkit-scrollbar {
+    width: 6px;
+}
+
+.question-textarea::-webkit-scrollbar-track {
+    background: #F1F1F1;
+    border-radius: 3px;
+}
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+
+.toolbar {
+    display: flex;
+    justify-content: space-between; /* kiri-kanan */
+    align-items: center;
+    gap: 40px; /* kalau mau tetap ada jarak ekstra */
+}
+
+
+.question-textarea::-webkit-scrollbar-thumb {
+    background: #C1C1C1;
+    border-radius: 3px;
+}
+
+.question-textarea::-webkit-scrollbar-thumb:hover {
+    background: #A8A8A8;
+}
 
 /* Card table */
 .question-card {
     background: #fff;
     border: 1px solid #B8B8B8;
     border-radius: 14px;
-    margin-top: 25px;
+    margin-bottom: 10px;
+    width: 100%;
+
+}
+
+
+/* Style untuk tombol */
+.btn {
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    text-decoration: none;
+    border: 1px solid transparent;
+    transition: all 0.3s ease;
+}
+
+
+.btn-warning {
+    background-color: #ffc107;
+    color: #212529;
+    border-color: #ffc107;
+}
+
+.btn-warning:hover {
+    background-color: #e0a800;
+    border-color: #d39e00;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    background-color: #0069d9;
+    border-color: #0062cc;
+}
+
+.btn-success {
+    background-color: #28a745;
+    color: white;
+    border-color: #28a745;
+}
+
+.btn-success:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+}
+
+/* Style untuk action column */
+.action-btns {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* Icon detail */
+.icon-detail {
+    color: #4379EE;
+    font-size: 16px;
+    transition: color 0.3s ease;
+}
+
+.icon-detail:hover {
+    color: #2c5fd9;
+}
+
+.company-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.company-header-left h2 {
+    margin: 0;
+}
+
+.company-header-right {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* Row data */
+.question-row {
+    padding: 14px 30px;
+    display: grid;
+    grid-template-columns: 30px  120px 80px 1fr 250px  50px;
+    align-items: center;
+    border-bottom: 1px solid #EEE;
+    font-size: 14px;
 }
 
 /* Header row */
@@ -468,20 +737,25 @@
     border-bottom: 1px solid #D4D4D4;
     padding: 15px 30px;
     display: grid;
-    grid-template-columns: 60px 180px 1fr 100px 200px 120px;
+    grid-template-columns: 30px 120px 80px 1fr 250px  50px;
     font-weight: 700;
     font-size: 14px;
 }
 
-/* Row data */
-.question-row {
-    padding: 14px 30px;
-    display: grid;
-    grid-template-columns: 60px 180px 1fr 100px 200px 120px;
-    align-items: center;
-    border-bottom: 1px solid #EEE;
-    font-size: 14px;
+.question-row.empty-row {
+    grid-template-columns: 1fr; /* cuma 1 kolom */
 }
+
+.question-row.empty-row .empty-cell {
+    grid-column: 1 / -1; /* ambil semua kolom */
+    text-align: center;
+    padding: 20px;
+    font-style: italic;
+    color: #666;
+}
+
+
+
 
 .question-row:last-child {
     border-bottom: none;
@@ -532,3 +806,4 @@
 	align-self: stretch;
 	background: #FFFFFF;
 }
+

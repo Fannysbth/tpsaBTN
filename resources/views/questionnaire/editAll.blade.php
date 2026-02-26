@@ -7,191 +7,731 @@
     <i class="fa-solid fa-building-columns icon-header"></i>
     <i class="fa-solid fa-shield-halved icon-header"></i>
 </x-header>
+@if(session('success'))
+    <div class="alert alert-success">{{ session('success') }}</div>
+@endif
+@if(session('error'))
+    <div class="alert alert-danger">{{ session('error') }}</div>
+@endif
 
-<form method="POST" action="{{ route('questionnaire.updateAll') }}">
+<form method="POST" action="{{ route('questionnaire.updateAll') }}" id="questionnaire-form">
     @csrf
     @method('PUT')
+    <input type="hidden" name="deleted_questions" id="deleted-questions" value="">
 
-    <div style="max-width: 1202px; box-sizing: border-box; background: #F5F6FA; padding-top: 1px; margin-top:10px;margin-left: 10px;">
+    <div class="filter-edit-wrapper" style="width: 100%; box-sizing: border-box;">
+        {{-- FILTER --}}
+        <div class="filter-box">
+            @php
+                $mainCategories = $categories->take(3);
+                $moreCategories = $categories->slice(3);
+            @endphp
 
-        {{-- Questions --}}
-        @foreach($categories as $category)
-            @foreach($category->questions as $question)
-            <div class="question-card" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px; padding:15px; border:1px solid #ccc; border-radius:8px; background:#fff;">
+            <span class="filter-item active" data-category-id="">All</span>
 
-                <div style="display:flex; gap:20px;">
-                    <!-- Left Group: Question Text + Options -->
-                    <div style="flex:1; display:flex; flex-direction:column; gap:10px;">
+            @foreach ($mainCategories as $category)
+                <span class="filter-item" data-category-id="{{ $category->id }}">
+                    {{ $category->name }}
+                </span>
+            @endforeach
 
-                        <!-- Question Text -->
-                        <textarea
-                            name="questions[{{ $question->id }}][question_text]"
-                            placeholder="Question text"
-                            style="
-                                color: #202224;
-                                font-size: 14px;
-                                font-weight: bold;
-                                background: #F7F7F7;
-                                border: none;
-                                border-bottom: 2px solid #000000;
-                                border-radius: 2px 2px 0 0;
-                                padding: 12px;
-                                width: 100%;
-                                resize: vertical;
-                                min-height: 40px;
-                            "
-                        >{{ $question->question_text }}</textarea>
-
-                        <!-- Options / Answer Text -->
-                        <div class="options-container" style="display: {{ in_array($question->question_type, ['pilihan','checkbox']) ? 'flex' : 'none' }}; flex-direction:column; gap:6px;">
-                            @if(in_array($question->question_type, ['pilihan','checkbox']))
-                                @foreach($question->options as $i => $option)
-                                <div class="option-item" style="display:flex; gap:10px; align-items:center;">
-                                    <input type="text"
-                                        name="questions[{{ $question->id }}][options][{{ $i }}][text]"
-                                        value="{{ $option->option_text }}"
-                                        placeholder="Option text"
-                                        style="flex:1; padding:5px; border:1px solid #4880FF; border-radius:6px;"
-                                    />
-                                    <input type="number"
-                                        name="questions[{{ $question->id }}][options][{{ $i }}][score]"
-                                        value="{{ $option->score }}"
-                                        placeholder="Score"
-                                        style="width:70px; padding:5px; border:1px solid #4880FF; border-radius:6px;"
-                                    />
-                                </div>
-                                @endforeach
-                                <!-- Empty input untuk tambah option baru -->
-                                <div class="option-item" style="display:flex; gap:10px; align-items:center;">
-                                    <input type="text" placeholder="Add option" class="new-option-input" style="flex:1; padding:5px; border:1px solid #4880FF; border-radius:6px;">
-                                    <input type="number" placeholder="Score" class="new-option-score" style="width:70px; padding:5px; border:1px solid #4880FF; border-radius:6px;">
-                                </div>
-                            @elseif($question->question_type == 'isian')
-                                <input type="text"
-                                    class="answer-input"
-                                    name="questions[{{ $question->id }}][answer_text]"
-                                    placeholder="{{ $question->clue ?? 'optional clue' }}"
-                                    style="padding:10px; border-radius:4px; border:1px solid #4880FF; width:100%;"
-                                />
-                            @endif
-                        </div>
-
+            @if ($moreCategories->count())
+                <div class="dropdown" style="padding:5px;">
+                    <span class="dropdown-toggle filter-item" data-bs-toggle="dropdown" id="moreFilter"
+                        style="align-items: stretch; height: 100%;">
+                        <span id="moreFilterText">More</span>
+                    </span>
+                    <div class="dropdown-menu">
+                        @foreach ($moreCategories as $category)
+                            <a href="#" class="dropdown-item filter-item"
+                                data-category-id="{{ $category->id }}">
+                                {{ $category->name }}
+                            </a>
+                        @endforeach
                     </div>
+                </div>
+            @endif
+        </div>
 
-                    <!-- Right Group: Type, Category, Indicator, Attachment -->
-                    <div style="flex:1; display:flex; flex-direction:column; gap:10px;">
-                        <!-- Question Type -->
-                        <div style="display:flex; flex-direction:column; gap:4px;">
-                            <span>Type</span>
-                            <select class="question-type" data-question-id="{{ $question->id }}" name="questions[{{ $question->id }}][question_type]" style="border:1px solid #4880FF; border-radius:6px; padding:5px;">
-                                <option value="pilihan" {{ $question->question_type=='pilihan'?'selected':'' }}>Multiple Choice</option>
-                                <option value="checkbox" {{ $question->question_type=='checkbox'?'selected':'' }}>Checkbox</option>
-                                <option value="isian" {{ $question->question_type=='isian'?'selected':'' }}>Answer Text</option>
-                            </select>
-                        </div>
+        {{-- INDICATOR FILTER --}}
+        <div class="dropdown"
+            style="display:flex; padding:10px;background:#FFFFFF; border-radius: 10px; border: 1px solid transparent; align-items:center;">
+            <span class="dropdown-toggle filter-item" data-bs-toggle="dropdown" id="indicatorFilter">
+                <span id="indicatorFilterText">Indicator</span>
+            </span>
+            <div class="dropdown-menu">
+                <a href="#" class="dropdown-item indicator-item" data-indicator="">All Indicator</a>
+                <a href="#" class="dropdown-item indicator-item" data-indicator="umum">Umum</a>
+                <a href="#" class="dropdown-item indicator-item" data-indicator="high">High</a>
+                <a href="#" class="dropdown-item indicator-item" data-indicator="medium">Medium</a>
+                <a href="#" class="dropdown-item indicator-item" data-indicator="low">Low</a>
+            </div>
+        </div>
 
-                        <!-- Category -->
-                        <div style="display:flex; flex-direction:column; gap:4px;">
-                            <span>Category</span>
-                            <select name="questions[{{ $question->id }}][category_id]" style="border:1px solid #4880FF; border-radius:6px; padding:5px;">
-                                @foreach($categories as $cat)
-                                    <option value="{{ $cat->id }}" {{ $question->category_id==$cat->id?'selected':'' }}>{{ $cat->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
+        <a href="#" id="add-question" class="btn-edit">
+            <i class="fas fa-edit"></i>
+            Add
+        </a>
+    </div>
 
-                        <!-- Indicator -->
-                        <div style="display:flex; flex-direction:column; gap:4px;">
-                            <span>Indicator</span>
-                            <div style="display:flex; gap:10px;">
-                                @foreach(['high','medium','low'] as $ind)
-                                    <label style="display:flex; align-items:center; gap:3px;">
-                                        <input 
-                                            type="checkbox" 
-                                            name="questions[{{ $question->id }}][indicator][]" 
-                                            value="{{ $ind }}" 
-                                            {{ in_array($ind, explode(',', $question->indicator ?? '')) ? 'checked' : '' }}
-                                        >
-                                        <span>{{ ucfirst($ind) }}</span>
-                                    </label>
-                                @endforeach
+    {{-- Questions Container --}}
+    <div id="questions-container"
+        style="
+            height: calc(100vh - 260px);
+            width: 100%;
+            max-width: 100%;
+            overflow-y: auto;
+            padding: 0 10px;
+            box-sizing: border-box;
+            margin: 0 auto;
+        ">
+
+        @php
+            $questionNumber = 1;
+        @endphp
+
+        {{-- QUESTION CARDS --}}
+        @foreach ($categories as $category)
+            @foreach ($category->questions as $question)
+                @php
+                    $indicatorArray = is_array($question->indicator)
+                        ? $question->indicator
+                        : json_decode($question->indicator ?? '[]', true);
+                @endphp
+
+                <div class="question-card existing-card"
+                    style="
+                        width: 100%;
+                        max-width: 100%;
+                        box-sizing: border-box;
+                        margin: 10px auto;
+                        border: 1px solid #E0E0E0;
+                        border-radius: 12px;
+                        background: #FFFFFF;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                        transition: all 0.3s ease;
+                        cursor: pointer;
+                        overflow: hidden;
+                    "
+                    data-question-id="{{ $question->id }}" data-category="{{ $question->category_id }}"
+                    data-indicator="{{ implode(',', $indicatorArray) }}">
+
+                    {{-- Header yang bisa diklik --}}
+                    <div class="question-header"
+                        style="padding: 20px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box;">
+                        <div style="display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0;">
+                            <div class="question-number"
+                                style="width: 32px; height: 32px; border-radius: 50%; background: #F0F7FF; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #4880FF; font-weight: bold; flex-shrink: 0;">
+                                {{ $question->question_no }}
+                            </div>
+                            <div style="flex: 1; min-width: 0;">
+                                <div
+                                    style="font-weight: 600; color: #202224; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    {{ $question->question_text ? Str::limit($question->question_text, 80) : 'Untitled Question' }}
+                                </div>
+                                <div style="font-size: 12px; color: #6C757D; margin-top: 4px;">
+                                    <span>{{ $question->question_type == 'pilihan' ? 'Multiple Choice' : 'Text Answer' }}</span>
+                                    •
+                                    <span>{{ $category->name }}</span>
+                                </div>
                             </div>
                         </div>
+                        <div class="expand-icon" style="transition: transform 0.3s; flex-shrink: 0;">
+                            <i class="fas fa-chevron-down" style="color: #6C757D; font-size: 16px;"></i>
+                        </div>
+                    </div>
 
-                        <!-- Attachment -->
-                        <div style="display:flex; flex-direction:column; gap:4px;">
-                            <span>Attachment</span>
-                            <input type="text" name="questions[{{ $question->id }}][attachment]" placeholder="Mohon lampirkan dokumen pendukung" style="padding:10px; border-radius:6px; border:1px solid #4880FF;">
+                    {{-- Body (awalnya tersembunyi) --}}
+                    <div class="question-body"
+                        style="
+                            width: 100%;
+                            padding: 16px;
+                            box-sizing: border-box;
+                            display: none;
+                        ">
+                        <div
+                            style="width: 100%; display: flex; flex-wrap: wrap; gap: 20px; margin-top: 20px; box-sizing: border-box;">
+                            {{-- Left Column --}}
+                            <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 20px;">
+                                {{-- Question Text --}}
+                                <div style="width: 100%;">
+                                    <label
+                                        style="color: #202224; font-size: 14px; font-weight: 600; margin-bottom: 8px; display: block;">Question</label>
+                                    <textarea name="questions[{{ $question->id }}][question_text]" placeholder="Enter question text..."
+                                        class="question-textarea"
+                                        style="color: #202224; font-size: 14px; background: #F8F9FA; border: 1px solid #DEE2E6; border-radius: 8px; padding: 12px; width: 100%; box-sizing: border-box; resize: vertical; min-height: 36px; transition: border 0.2s;"
+                                        rows="2">{{ $question->question_text }}</textarea>
+                                </div>
+
+                                {{-- Answer Section --}}
+                                <div class="answer-section" data-question-id="{{ $question->id }}"
+                                    style="width: 100%;">
+                                    @if ($question->question_type == 'pilihan')
+                                        <div style="width: 100%;">
+                                            <label
+                                                style="color: #202224; font-size: 14px; font-weight: 600; margin-bottom: 12px; display: block;">Options</label>
+                                            <div class="options-container"
+                                                style="width: 100%; display: flex; flex-direction: column; gap: 12px;">
+                                                @foreach ($question->options as $i => $option)
+                                                    <div class="option-item"
+                                                        style="width: 100%; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; box-sizing: border-box;">
+                                                        <div
+                                                            style="flex: 1; min-width: 200px; display: flex; align-items: center; gap: 12px;">
+                                                            <input type="text"
+                                                                name="questions[{{ $question->id }}][options][{{ $i }}][text]"
+                                                                value="{{ $option->option_text }}" placeholder="Option text"
+                                                                style="flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #4880FF; border-radius: 6px; font-size: 14px; box-sizing: border-box;" />
+                                                        </div>
+                                                        <input type="number"
+                                                            name="questions[{{ $question->id }}][options][{{ $i }}][score]"
+                                                            value="{{ $option->score }}" placeholder="Score"
+                                                            style="width: 80px; padding: 10px; border: 1px solid #4880FF; border-radius: 6px; font-size: 14px; box-sizing: border-box;" />
+                                                        <button type="button" class="delete-option-btn"
+                                                            style="background: transparent; border: none; padding: 0; margin: 0; color: #FF4D4F; font-size: 18px; cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                                            ×
+                                                        </button>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                            <button type="button" class="add-option-btn"
+                                                data-question-id="{{ $question->id }}"
+                                                style="margin-top: 12px; padding: 10px 20px; background: #4880FF; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer;">
+                                                <i class="fas fa-plus" style="margin-right: 6px;"></i>Add Option
+                                            </button>
+                                        </div>
+                                    @else
+                                        <div style="width: 100%;">
+                                            <label
+                                                style="color: #202224; font-size: 14px; font-weight: 600; margin-bottom: 8px; display: block;">Answer
+                                                Clue</label>
+                                            <input type="text" name="questions[{{ $question->id }}][clue]"
+                                                value="{{ $question->clue ?? '' }}"
+                                                placeholder="Optional clue for text answer"
+                                                style="padding: 12px; border: 1px solid #4880FF; border-radius: 8px; font-size: 14px; width: 100%; box-sizing: border-box;" />
+                                        </div>
+                                    @endif
+                                </div>
+                                <div style="margin-top: auto; width: 100%;">
+                                    <button type="button" class="delete-question-btn"
+                                        data-question-id="{{ $question->id }}"
+                                        data-category-name="{{ $category->name }}"
+                                        style="align-self: flex-start; padding: 10px 20px; background: #FF4D4F; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.2s;"
+                                        onmouseover="this.style.background='#FF3333'"
+                                        onmouseout="this.style.background='#FF4D4F'">
+                                        <i class="fas fa-trash" style="margin-right: 6px;"></i>Delete Question
+                                    </button>
+                                </div>
+                            </div>
+
+                            {{-- Right Column --}}
+                            <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 20px;">
+                                {{-- Question Type --}}
+                                <div style="width: 100%;">
+                                    <label
+                                        style="color: #202224; font-size: 14px; font-weight: 600; margin-bottom: 8px; display: block;">Type</label>
+                                    <select class="question-type-select" data-question-id="{{ $question->id }}"
+                                        name="questions[{{ $question->id }}][question_type]"
+                                        style="padding: 12px; border: 1px solid #4880FF; border-radius: 8px; font-size: 14px; color: #202224; background: white; width: 100%; box-sizing: border-box; cursor: pointer;">
+                                        <option value="pilihan" {{ $question->question_type == 'pilihan' ? 'selected' : '' }}>
+                                            Multiple Choice</option>
+                                        <option value="isian" {{ $question->question_type == 'isian' ? 'selected' : '' }}>Text
+                                            Answer</option>
+                                    </select>
+                                </div>
+
+                                {{-- Category --}}
+                                <div style="width: 100%;">
+                                    <label
+                                        style="color: #202224; font-size: 14px; font-weight: 600; margin-bottom: 8px; display: block;">Category</label>
+                                    <select name="questions[{{ $question->id }}][category_id]" class="category-select"
+                                        style="padding: 12px; border: 1px solid #4880FF; border-radius: 8px; font-size: 14px; color: #202224; background: white; width: 100%; box-sizing: border-box; cursor: pointer;">
+                                        @foreach ($categories as $cat)
+                                            <option value="{{ $cat->id }}"
+                                                {{ $question->category_id == $cat->id ? 'selected' : '' }}>
+                                                {{ $cat->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                {{-- Indicator --}}
+                                <div style="width: 100%;">
+                                    <label
+                                        style="color: #202224; font-size: 14px; font-weight: 600; margin-bottom: 8px; display: block;">Indicator</label>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 16px;">
+                                        @foreach (['umum' => 'Umum', 'high' => 'High', 'medium' => 'Medium', 'low' => 'Low'] as $indValue => $indLabel)
+                                            <label
+                                                style="display: flex; align-items: center; gap: 8px; cursor: pointer; flex-shrink: 0;">
+                                                @php
+                                                    $indicators = $indicatorArray;
+                                                @endphp
+                                                <input type="checkbox" name="questions[{{ $question->id }}][indicator][]"
+                                                    value="{{ $indValue }}"
+                                                    style="width: 18px; height: 18px; accent-color: #4880FF; flex-shrink: 0;"
+                                                    {{ in_array($indValue, $indicators) ? 'checked' : '' }} />
+                                                <span
+                                                    style="font-size: 14px; color: #202224; white-space: nowrap;">{{ $indLabel }}</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                </div>
+
+                                {{-- Attachment --}}
+                                <div style="width: 100%;">
+                                    <label
+                                        style="color: #202224; font-size: 14px; font-weight: 600; margin-bottom: 8px; display: block;">Attachment
+                                        Note</label>
+                                    <input type="text" name="questions[{{ $question->id }}][attachment_text]"
+                                        value="{{ $question->attachment_text }}"
+                                        placeholder="Please attach supporting document"
+                                        style="padding: 12px; border: 1px solid #4880FF; border-radius: 8px; font-size: 14px; width: 100%; box-sizing: border-box;" />
+                                </div>
+
+                                <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                                    <label style="color: #202224; font-size: 12px; font-weight: 600;">Sub Category</label>
+                                    <input type="text" name="questions[{{ $question->id }}][sub]"
+                                        value="{{ $question->sub }}" placeholder="Please insert sub category"
+                                        style="padding: 12px; border: 1px solid #4880FF; border-radius: 8px; font-size: 14px; width: 100%; box-sizing: border-box;" />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-
-                <!-- Delete -->
-                <div style="align-self:flex-end; cursor:pointer; color:red;" onclick="alert('Hapus pertanyaan')">Hapus</div>
-
-            </div>
+                @php $questionNumber++; @endphp
             @endforeach
         @endforeach
+    </div>
 
-        {{-- Buttons --}}
-        <div style="align-self: stretch; display: flex; justify-content: flex-end; align-items: center; margin-bottom: 63px; margin-top:20px;">
-            <button type="button" style="flex-shrink:0; display:flex; align-items:center; background:none; border-radius:6px; border:1px solid #4880FF; padding:11px 16px; gap:22px; margin-right:10px;">Cancel</button>
-            <button type="submit" style="flex-shrink:0; display:flex; align-items:flex-start; background:#4379EE; border-radius:6px; border:none; padding:12px 19px; gap:22px; color:#fff;">Save</button>
-        </div>
+    {{-- Buttons --}}
+    <div
+        style="display: flex; justify-content: flex-end; align-items: center; margin-top: 30px; margin-right: 20px; gap: 12px; box-sizing: border-box;">
+        <a href="{{ route('questionnaire.index') }}" type="button" id="cancelBtn"
+            style="padding: 12px 28px; background: white; color: #4880FF; border: 1px solid #4880FF; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer;">
+            Cancel
+        </a>
+        <button type="submit" id="saveBtn"
+            style="padding: 12px 28px; background: #4379EE; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer;">
+            Save All Changes
+        </button>
     </div>
 </form>
 
+<style>
+    /* CSS untuk toggle card */
+    .question-card.active {
+        border-color: #4880FF;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    }
+    
+    .question-card.active .question-body {
+        display: block !important;
+    }
+    
+    .question-card.active .expand-icon i {
+        transform: rotate(180deg);
+    }
+</style>
+
+
+
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+    function createOptionElement(questionId, index) {
+    const div = document.createElement('div');
+    div.className = 'option-item';
+    div.style = 'display:flex;gap:12px;align-items:center;';
+    div.innerHTML = `
+        <input type="text"
+               name="questions[${questionId}][options][${index}][text]"
+               placeholder="Option text"
+               style="flex:1;padding:10px;border:1px solid #4880FF;border-radius:6px;">
+        <input type="number"
+               name="questions[${questionId}][options][${index}][score]"
+               placeholder="Score"
+               style="width:80px;padding:10px;border:1px solid #4880FF;border-radius:6px;">
+        <button type="button" class="delete-option-btn"
+                style="background:none;border:none;color:#FF4D4F;font-size:18px;">
+            ×
+        </button>
+    `;
+    return div;
+}
 
-    // Function untuk handle dynamic option
-    function setupNewOption(input) {
-        input.addEventListener('keydown', function(e){
-            if(e.key === 'Enter' && this.value.trim() !== ''){
-                e.preventDefault();
-                const container = this.closest('.options-container');
-                const newItem = this.closest('.option-item').cloneNode(true);
+function scrollToQuestion(card) {
+    card.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+    });
+}
+function getNextQuestionNumber() {
+    const nums = document.querySelectorAll('.question-number');
+    return nums.length + 1;
+}
 
-                // Kosongkan input baru
-                newItem.querySelector('input[type=text]').value = '';
-                newItem.querySelector('input[type=number]').value = '';
-                
-                // Tambahkan di container
-                container.appendChild(newItem);
+document.getElementById('add-question').addEventListener('click', function (e) {
+    e.preventDefault();
+    addQuestionByClone();
+});
 
-                // Fokus ke input baru
-                newItem.querySelector('input[type=text]').focus();
+function addQuestionByClone() {
+    const container = document.getElementById('questions-container');
+    const lastCard = container.querySelector('.question-card:last-child');
+    if (!lastCard) return;
 
-                // Setup listener lagi untuk input yang baru
-                setupNewOption(newItem.querySelector('input[type=text]'));
-            }
-        });
+    const newQuestionId = 'new_' + Date.now();
+    const newCard = lastCard.cloneNode(true);
+
+    // Set data-question-id pada card
+    newCard.dataset.questionId = newQuestionId;
+
+    // Update semua atribut name
+    newCard.querySelectorAll('[name]').forEach(el => {
+        el.name = el.name.replace(/\[.*?\]/, `[${newQuestionId}]`);
+    });
+
+    // 🔥 UPDATE SEMUA ELEMEN YANG MEMILIKI data-question-id
+    newCard.querySelectorAll('[data-question-id]').forEach(el => {
+        el.dataset.questionId = newQuestionId;
+    });
+
+    // Reset nilai input/textarea
+    newCard.querySelectorAll('textarea').forEach(el => el.value = '');
+    newCard.querySelectorAll('input').forEach(el => {
+        if (el.type === 'checkbox' || el.type === 'radio') {
+            el.checked = false;
+        } else {
+            el.value = '';
+        }
+    });
+
+    // Reset opsi (buat satu opsi default)
+    const optionsContainer = newCard.querySelector('.options-container');
+    if (optionsContainer) {
+        optionsContainer.innerHTML = '';
+        const firstOption = createOptionElement(newQuestionId, 0);
+        optionsContainer.appendChild(firstOption);
     }
 
-    document.querySelectorAll('.new-option-input').forEach(input => {
-        setupNewOption(input);
+    // Inisialisasi cache untuk kartu baru (opsional, tapi direkomendasikan)
+    newCard._optionCache = optionsContainer ? optionsContainer.cloneNode(true) : '';
+    const clueInput = newCard.querySelector('input[name*="[clue]"]');
+    newCard._clueCache = clueInput ? clueInput.value : '';
+
+    // Tutup body jika terbuka, lalu buka
+    newCard.classList.remove('active');
+    const body = newCard.querySelector('.question-body');
+    if (body) body.style.display = '';
+
+    container.appendChild(newCard);
+    newCard.classList.add('active');
+    scrollToQuestion(newCard);
+}
+
+
+function openCard(card) {
+    card.classList.add('active');
+}
+
+
+document.addEventListener('click', function (e) {
+    const header = e.target.closest('.question-header');
+    if (!header) return;
+
+    const card = header.closest('.question-card');
+
+    // toggle active
+    card.classList.toggle('active');
+
+    // rotate icon
+    const icon = card.querySelector('.expand-icon i');
+    if (icon) {
+        icon.style.transform = card.classList.contains('active')
+            ? 'rotate(180deg)'
+            : 'rotate(0deg)';
+    }
+});
+
+</script>
+
+<script>
+let activeCategory = null;
+let activeIndicator = null;
+
+function applyFilter() {
+    document.querySelectorAll('.question-card').forEach(card => {
+        const cardCategory = card.dataset.category;
+        const cardIndicators = (card.dataset.indicator || '').split(',');
+
+        const matchCategory = !activeCategory || cardCategory === activeCategory;
+        const matchIndicator = !activeIndicator || cardIndicators.includes(activeIndicator);
+
+        card.style.display = (matchCategory && matchIndicator) ? '' : 'none';
     });
+}
 
-    // Change question type dynamically
-    document.querySelectorAll('.question-type').forEach(select => {
-        select.addEventListener('change', function(){
-            const card = this.closest('.question-card');
-            const optionsContainer = card.querySelector('.options-container');
-            const answerInput = card.querySelector('.answer-input');
+/* CATEGORY FILTER */
+document.querySelectorAll('.filter-item[data-category-id]').forEach(item => {
+    item.addEventListener('click', function (e) {
+        e.preventDefault();
 
-            if(this.value === 'pilihan' || this.value === 'checkbox') {
-                // Tampilkan options container
-                if(optionsContainer) optionsContainer.style.display = 'flex';
-                if(answerInput) answerInput.style.display = 'none';
-            } else if(this.value === 'isian') {
-                // Sembunyikan options, tampilkan answer input
-                if(optionsContainer) optionsContainer.style.display = 'none';
-                if(answerInput) answerInput.style.display = 'block';
-            }
-        });
+        activeCategory = this.dataset.categoryId || null;
+
+        document.querySelectorAll('.filter-item').forEach(f => f.classList.remove('active'));
+        this.classList.add('active');
+
+        // reset More kalau klik main / all
+        const moreText = document.getElementById('moreFilterText');
+        if (moreText && !this.closest('.dropdown-menu')) {
+            moreText.textContent = 'More';
+        }
+
+        applyFilter();
     });
+});
 
+/* INDICATOR FILTER */
+document.querySelectorAll('.indicator-item').forEach(item => {
+    item.addEventListener('click', function (e) {
+        e.preventDefault();
+
+        activeIndicator = this.dataset.indicator || null;
+
+        document.querySelectorAll('.indicator-item').forEach(i => i.classList.remove('active'));
+        this.classList.add('active');
+
+        const label = this.textContent.trim();
+        document.getElementById('indicatorFilterText').textContent =
+            label === 'All Indicator' ? 'Indicator' : label;
+
+        applyFilter();
+    });
 });
 </script>
+
+<script>
+document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.add-option-btn')
+    if (!btn) return
+
+    const questionId = btn.dataset.questionId
+    const card = btn.closest('.question-card')
+    const container = card.querySelector('.options-container')
+
+    const index = container.children.length
+
+    const option = document.createElement('div')
+    option.className = 'option-item'
+    option.style = 'display:flex;gap:12px;align-items:center;'
+
+    option.innerHTML = `
+        <input type="text"
+               name="questions[${questionId}][options][${index}][text]"
+               placeholder="Option text"
+               style="flex:1;padding:10px;border:1px solid #4880FF;border-radius:6px;">
+        <input type="number"
+               name="questions[${questionId}][options][${index}][score]"
+               placeholder="Score"
+               style="width:80px;padding:10px;border:1px solid #4880FF;border-radius:6px;">
+        <button type="button" class="delete-option-btn"
+                style="background:none;border:none;color:#FF4D4F;font-size:18px;">
+            ×
+        </button>
+    `
+
+    container.appendChild(option)
+
+    // 🔥 UPDATE CACHE
+    updateOptionCache(card)
+})
+</script>
+
+<script>
+document.addEventListener('change', function (e) {
+    if (!e.target.classList.contains('question-type-select')) return
+
+    const select = e.target
+    const type = select.value
+    const questionId = select.dataset.questionId
+    const card = select.closest('.question-card')
+    const answerSection = card.querySelector('.answer-section')
+
+    if (!answerSection) return
+
+    // init cache
+    if (!card._optionCache) card._optionCache = null
+    if (!card._clueCache) card._clueCache = ''
+
+    /* ======================
+       SWITCH TO TEXT
+    ====================== */
+    if (type === 'isian') {
+
+        const container = answerSection.querySelector('.options-container')
+        if (container) {
+            card._optionCache = container.cloneNode(true)
+        }
+
+        answerSection.innerHTML = ''
+
+        const wrap = document.createElement('div')
+
+        wrap.innerHTML = `
+            <label style="font-weight:600;margin-bottom:8px;display:block">
+                Answer Clue
+            </label>
+        `
+
+        const input = document.createElement('input')
+        input.type = 'text'
+        input.name = `questions[${questionId}][clue]`
+        input.value = card._clueCache
+        input.style = 'padding:12px;border:1px solid #4880FF;border-radius:8px;width:100%;'
+
+        wrap.appendChild(input)
+        answerSection.appendChild(wrap)
+
+        return
+    }
+
+    /* ======================
+       SWITCH TO PILIHAN
+    ====================== */
+    if (type === 'pilihan') {
+
+        answerSection.innerHTML = ''
+
+        const wrap = document.createElement('div')
+
+        const label = document.createElement('label')
+        label.textContent = 'Options'
+        label.style = 'font-weight:600;margin-bottom:12px;display:block'
+        wrap.appendChild(label)
+
+        const container = card._optionCache
+            ? card._optionCache.cloneNode(true)
+            : document.createElement('div')
+
+        container.classList.add('options-container')
+        container.style.display = 'flex'
+        container.style.flexDirection = 'column'
+        container.style.gap = '12px'
+
+        wrap.appendChild(container)
+
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.className = 'add-option-btn'
+        btn.dataset.questionId = questionId
+        btn.textContent = '+ Add Option'
+        btn.style = 'margin-top:12px;padding:10px 20px; background:#4880FF;color:white;border:none;border-radius:6px;'
+
+        wrap.appendChild(btn)
+
+        answerSection.appendChild(wrap)
+    }
+})
+
+
+/* =========================
+   SAVE CLUE WHILE TYPING
+========================= */
+document.addEventListener('input', function (e) {
+    if (e.target.name && e.target.name.includes('[clue]')) {
+        const card = e.target.closest('.question-card')
+        if (card) {
+            card._clueCache = e.target.value
+        }
+    }
+})
+
+function updateOptionCache(card) {
+    const container = card.querySelector('.options-container')
+    if (!container) return
+
+    // CLONE DOM (INI KUNCI)
+    card._optionCache = container.cloneNode(true)
+}
+
+
+document.addEventListener('input', function (e) {
+    if (
+        e.target.name?.includes('[options]') ||
+        e.target.closest('.option-item')
+    ) {
+        const card = e.target.closest('.question-card')
+        if (card) updateOptionCache(card)
+    }
+})
+
+document.querySelectorAll('.question-card').forEach(card => {
+    const optionsContainer = card.querySelector('.options-container')
+    if (optionsContainer) {
+        card._optionCache = optionsContainer.cloneNode(true)
+    } else {
+        card._optionCache = ''
+    }
+
+    const clueInput = card.querySelector('input[name*="[clue]"]')
+    card._clueCache = clueInput ? clueInput.value : ''
+})
+</script>
+
+<script>
+let deletedQuestions = []
+
+document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.delete-question-btn')
+    if (!btn) return
+
+    e.preventDefault()
+    e.stopPropagation()
+
+    const card = btn.closest('.question-card')
+    if (!card) return
+
+    const questionId = card.dataset.questionId
+
+    const confirmDelete = confirm(
+        `PERINGATAN!\n\n` +
+        `Pertanyaan ini akan DIHAPUS setelah Save.\n` +
+        `Jika Cancel, perubahan akan dibatalkan.\n` +
+        `Yakin ingin melanjutkan?`
+    )
+
+    if (!confirmDelete) return
+
+    // 👉 hanya simpan kalau EXISTING question (bukan new_xxx)
+    if (!questionId.startsWith('new_')) {
+        deletedQuestions.push(questionId)
+        document.getElementById('deleted-questions').value =
+            deletedQuestions.join(',')
+    }
+
+    // ❌ HAPUS DARI UI SAJA
+    card.remove()
+
+    // update nomor
+    document.querySelectorAll('.question-number').forEach((el, i) => {
+        el.textContent = i + 1
+    })
+})
+</script>
+
+
+
+<style>
+.question-card.active {
+    border-color: #4880FF;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.question-card .question-body {
+    display: none;
+}
+
+.question-card.active .question-body {
+    display: block;
+}
+</style>
+
 
 @endsection

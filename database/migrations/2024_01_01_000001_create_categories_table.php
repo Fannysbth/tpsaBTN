@@ -11,8 +11,7 @@ return new class extends Migration
         Schema::create('categories', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->text('description')->nullable();
-            $table->integer('weight')->default(1);
+            $table->json('criteria')->nullable(); // simpan high/medium/low
             $table->timestamps();
         });
     }
