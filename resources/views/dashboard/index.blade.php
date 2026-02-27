@@ -106,7 +106,7 @@
     flex-direction:column;
     gap:12px;
     width:100%;
-    max-width:320px;
+    max-width:300px;
 ">
 
 @php
@@ -167,7 +167,7 @@ $style = $riskStyle[$label] ?? ['bg'=>'#f5f5f5','color'=>'#888'];
 </div>                
 
                 {{-- HEATMAP RISK TIER --}}
-                <div id="card-chart-heatmap" class="heatmap-card export-card" style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                <div id="card-chart-heatmap" class="heatmap-card export-card" style="background: white; align-items: center; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
                     <div class="chart-header">
                         <h3 style="font-size: 16px; font-weight: 600; display: flex; align-items: center;">
                             <i class="fa-solid fa-fire" style="color:#FF6B6B; margin-right:10px;"></i>
@@ -177,32 +177,54 @@ $style = $riskStyle[$label] ?? ['bg'=>'#f5f5f5','color'=>'#888'];
                     <div class="heatmap-body" style="overflow: auto;">
                         <table class="heatmap-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
                             <thead>
-                                <tr>
-                                    <th style="padding: 8px; border: 1px solid #dee2e6; background: #f8f9fa;">Risk Level</th>
-                                    @foreach(array_keys($heatmapRiskTier ?? []) as $tier)
-                                        <th style="padding: 8px; border: 1px solid #dee2e6; background: #f8f9fa;">{{ $tier }}</th>
-                                    @endforeach
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($heatmapRiskTier ?? [] as $riskLevel => $tiers)
-                                <tr>
-                                    <td class="vendor-name" style="font-weight: 600; background: #f8f9fa; padding: 8px; border: 1px solid #dee2e6;">{{ $riskLevel }}</td>
-                                    @foreach($tiers as $tierData)
-                                        @php
-                                            $count = $tierData['count'] ?? 0;
-                                            $color = $tierData['color'] ?? '#ffffff';
-                                            $vendors = $tierData['vendors'] ?? [];
-                                            $tooltip = empty($vendors) ? 'No vendor' : implode("\n", $vendors);
-                                            $textColor = (array_sum(sscanf($color, "#%02x%02x%02x")) / 3 < 128) ? '#fff' : '#000';
-                                        @endphp
-                                        <td class="heatmap-cell" style="background: {{ $color }}; color: {{ $textColor }}; padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: 700;" title="{{ $tooltip }}">
-                                            {{ $count }}
-                                        </td>
-                                    @endforeach
-                                </tr>
-                                @endforeach
-                            </tbody>
+    <tr>
+        <th style="width:90px;padding:8px;border:1px solid #dee2e6;background:#f8f9fa;">
+            Tier/Risk
+        </th>
+
+        @foreach(array_keys($heatmapRiskTier ?? []) as $riskLevel)
+            <th style="text-align:center;padding:8px;border:1px solid #dee2e6;background:#f8f9fa;">
+                {{ $riskLevel }}
+            </th>
+        @endforeach
+    </tr>
+</thead>
+
+<tbody>
+@php
+    $tiers = ['Tier 1','Tier 2','Tier 3'];
+@endphp
+
+@foreach($tiers as $tier)
+<tr>
+    <td style="width:90px;font-weight:600;background:#f8f9fa;padding:8px;border:1px solid #dee2e6;">
+        {{ $tier }}
+    </td>
+
+    @foreach($heatmapRiskTier ?? [] as $riskLevel => $riskData)
+        @php
+            $tierData = $riskData[$tier] ?? [];
+            $count = $tierData['count'] ?? 0;
+            $color = $tierData['color'] ?? '#ffffff';
+            $vendors = $tierData['vendors'] ?? [];
+            $tooltip = empty($vendors) ? 'No vendor' : implode("\n", $vendors);
+            $textColor = (array_sum(sscanf($color, "#%02x%02x%02x")) / 3 < 128) ? '#fff' : '#000';
+        @endphp
+
+        <td style="background:{{ $color }};
+                   color:{{ $textColor }};
+                   padding:10px;
+                   border:1px solid #dee2e6;
+                   text-align:center;
+                   font-weight:700;"
+            title="{{ $tooltip }}">
+            {{ $count }}
+        </td>
+    @endforeach
+
+</tr>
+@endforeach
+</tbody>
                         </table>
                     </div>
                     {{-- Gradient Legend --}}
@@ -261,32 +283,49 @@ $style = $riskStyle[$label] ?? ['bg'=>'#f5f5f5','color'=>'#888'];
         const barTierData = @json($barTier);
         if (barTierData.labels && barTierData.values) {
             new Chart(document.getElementById('barTierChart'), {
-                type: 'bar',
-                data: {
-                    labels: barTierData.labels,
-                    datasets: [{
-                        label: 'Jumlah Vendor',
-                        data: barTierData.values,
-                        backgroundColor: ['#FF6B6B', '#FEC53D', '#4AD991'],
-                        borderColor: '#ddd',
-                        borderWidth: 1,
-                        borderRadius: 4,
-                    }]
+    type: 'bar',
+    data: {
+        labels: barTierData.labels,
+        datasets: [{
+            label: 'Jumlah Vendor',
+            data: barTierData.values,
+            backgroundColor: ['#FF6B6B', '#FEC53D', '#4AD991'],
+            borderColor: '#ddd',
+            borderWidth: 1,
+            borderRadius: 4,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: {
+            legend: { display: false },
+            tooltip: { 
+                callbacks: { 
+                    label: (ctx) => `${ctx.raw} vendor` 
+                } 
+            },
+            datalabels: {
+                anchor: 'end',
+                align: 'right',
+                color: '#333',
+                font: {
+                    weight: 'bold',
+                    size: 12
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    indexAxis: 'y', // MEMBUAT BAR CHART VERTIKAL (sesuai permintaan: sumbu Y nilai, sumbu X tier)
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { callbacks: { label: (ctx) => `${ctx.raw} vendor` } }
-                    },
-                    scales: {
-                        x: { beginAtZero: true, grid: { display: false } },
-                        y: { grid: { display: false } }
-                    }
+                formatter: function(value) {
+                    return value;
                 }
-            });
+            }
+        },
+        scales: {
+            x: { beginAtZero: true, grid: { display: false } },
+            y: { grid: { display: false } }
+        }
+    },
+    plugins: [ChartDataLabels]
+});
         }
 
         // ===================== PIE CHART COMPARISON =====================
@@ -320,14 +359,25 @@ $style = $riskStyle[$label] ?? ['bg'=>'#f5f5f5','color'=>'#888'];
         }
     },
     datalabels: {
-        color: '#fff',
-        font: { weight: 'bold', size: 12 },
-        formatter: (value) => {
-            if (!value) return '';
-            const pct = ((value / total) * 100).toFixed(1);
-            return `${value}\n(${pct}%)`;
-        }
+    color: '#fff',
+    anchor: 'center',
+    align: 'center',
+    clamp: true,
+    formatter: (value, ctx) => {
+        if (!value) return '';
+
+        const dataset = ctx.chart.data.datasets[0].data;
+        const total = dataset.reduce((a, b) => a + b, 0);
+
+        const percent = ((value / total) * 100).toFixed(1);
+
+        return `${value}\n(${percent}%)`;
+    },
+    font: {
+        weight: 'bold',
+        size: 12
     }
+}
 }
 },
                 plugins: [ChartDataLabels]
@@ -433,8 +483,8 @@ $style = $riskStyle[$label] ?? ['bg'=>'#f5f5f5','color'=>'#888'];
         word-break: break-word;
     }
     #barTierChart {
-    height: 180px !important;
-    max-height: 170px;
+    height: 160px !important;
+    max-height: 160px;
 }
     #pieComparisonChart {
         max-height: 250px;
